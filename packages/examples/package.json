@@ -1,0 +1,21 @@
+{
+  "name": "@vitest-story/examples",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@vitest-story/plugin": "workspace:*"
+  },
+  "devDependencies": {
+    "@testcontainers/mongodb": "^11.10.0",
+    "better-sqlite3": "^9.4.3",
+    "mongodb": "^7.0.0",
+    "mongoose": "^9.0.1",
+    "testcontainers": "^11.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.15"
+  }
+}
