@@ -1,0 +1,23 @@
+{
+  "name": "vitest-story",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:plugin": "pnpm --filter plugin build",
+    "build:vsix": "pnpm --filter story-vsix compile",
+    "pub:vsix": "pnpm --filter story-vsix compile && pnpm --filter story-vsix package --no-dependencies",
+    "lint": "eslint . --ext .ts,.js",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@typescript-eslint/eslint-plugin": "^8.49.0",
+    "@typescript-eslint/parser": "^8.49.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^16.5.0",
+    "prettier": "^3.7.4"
+  }
+}
