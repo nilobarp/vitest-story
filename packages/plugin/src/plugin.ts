@@ -55,7 +55,7 @@ function findStepFiles(dir: string): string[] {
     }
   } catch (error) {
     console.warn(
-      `[Scripture] Failed to read directory ${dir}:`,
+      `[Vitest Story] Failed to read directory ${dir}:`,
       error instanceof Error ? error.message : String(error)
     );
   }

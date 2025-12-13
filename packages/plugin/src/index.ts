@@ -36,5 +36,5 @@ export type { VitestStoryConfig } from "./config.js";
 /**
  * Plugin (for vitest.config.ts)
  */
-export { storyPlugin } from "./plugin.js";
+export { vitestStoryPlugin } from "./plugin.js";
 export type { VitestStoryPluginOptions } from "./plugin.js";
