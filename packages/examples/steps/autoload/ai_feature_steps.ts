@@ -1,4 +1,4 @@
-import { step, Given, When, Then } from "@vitest-story/plugin";
+import { step, Given, When, Then } from "vitest-story";
 
 const system = {
   extractionStarted: false,

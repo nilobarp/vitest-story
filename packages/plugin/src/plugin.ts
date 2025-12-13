@@ -88,12 +88,12 @@ export function vitestStoryPlugin(
 
     // Transform test files that use Story to inject step imports
     transform(code, id) {
-      // Only transform test files that import from @vitest-story/plugin
+      // Only transform test files that import from vitest-story
       if (!id.endsWith(".test.ts") && !id.endsWith(".spec.ts")) {
         return null;
       }
 
-      if (!code.includes("@vitest-story/plugin")) {
+      if (!code.includes("vitest-story")) {
         return null;
       }
 

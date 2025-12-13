@@ -1,4 +1,4 @@
-import { story } from "@vitest-story/plugin";
+import { story } from "vitest-story";
 
 // Import step definitions to register them
 import "./steps/common_steps";

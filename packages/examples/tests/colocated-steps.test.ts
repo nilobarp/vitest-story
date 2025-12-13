@@ -1,5 +1,5 @@
 import { expect, beforeEach } from "vitest";
-import { story, clearSteps } from "@vitest-story/plugin";
+import { story, clearSteps } from "vitest-story";
 
 // Mock state
 interface AppState {

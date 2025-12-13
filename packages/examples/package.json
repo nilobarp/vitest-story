@@ -1,12 +1,12 @@
 {
-  "name": "@vitest-story/examples",
+  "name": "examples",
   "version": "1.0.0",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@vitest-story/plugin": "workspace:*"
+    "vitest-story": "workspace:*"
   },
   "devDependencies": {
     "@testcontainers/mongodb": "^11.10.0",

@@ -1,4 +1,4 @@
-import { story } from "@vitest-story/plugin";
+import { story } from "vitest-story";
 
 /* *
  * steps are loaded automatically from the configured steps directory in vitest.config.ts

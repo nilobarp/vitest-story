@@ -3,7 +3,7 @@
  * Import this file in your test setup to make these steps available globally
  */
 
-import { Given, When, Then } from "@vitest-story/plugin";
+import { Given, When, Then } from "vitest-story";
 import { expect } from "vitest";
 
 // Counter steps

@@ -3,7 +3,7 @@
  * Includes user authentication and cart operations
  */
 
-import { Given, When, Then } from "@vitest-story/plugin";
+import { Given, When, Then } from "vitest-story";
 import { expect } from "vitest";
 import Database from "better-sqlite3";
 
