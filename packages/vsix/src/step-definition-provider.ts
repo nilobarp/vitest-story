@@ -149,22 +149,50 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
    * This mirrors the pattern-compiler logic from the plugin
    */
   private patternToRegex(pattern: string): RegExp {
-    // Escape special regex characters except for our placeholder markers
-    let regexPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let regexPattern = "";
+    let lastIndex = 0;
 
-    // Replace parameter placeholders with capture groups
-    // {int} -> (\d+)
-    regexPattern = regexPattern.replace(/\\\{int\\\}/g, "(\\d+)");
-    // {float} -> (\d+\.\d+|\d+)
-    regexPattern = regexPattern.replace(/\\\{float\\\}/g, "(\\d+\\.\\d+|\\d+)");
-    // {string} -> (.+)
-    regexPattern = regexPattern.replace(/\\\{string\\\}/g, "(.+)");
-    // {word} -> (\w+)
-    regexPattern = regexPattern.replace(/\\\{word\\\}/g, "(\\w+)");
-    // Custom named parameters {variableName} -> (.+)
-    regexPattern = regexPattern.replace(/\\\{[a-zA-Z_]\w*\\\}/g, "(.+?)");
+    // Find all placeholders in the pattern
+    const placeholderRegex = /\{(\w+)\}/g;
+    let match: RegExpExecArray | null;
 
-    return new RegExp(`^${regexPattern}$`);
+    while ((match = placeholderRegex.exec(pattern)) !== null) {
+      const paramName = match[1];
+      const startIndex = match.index;
+
+      // Add the literal text before this placeholder (escaped)
+      if (startIndex > lastIndex) {
+        regexPattern += this.escapeRegex(
+          pattern.substring(lastIndex, startIndex)
+        );
+      }
+
+      // Add the capture group for this placeholder
+      if (paramName === "yaml") {
+        // YAML blocks can be multiline and non-greedy
+        regexPattern += "([\\s\\S]+?)";
+      } else {
+        // Regular parameters: match any characters except newlines
+        regexPattern += "(.+?)";
+      }
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add any remaining literal text
+    if (lastIndex < pattern.length) {
+      regexPattern += this.escapeRegex(pattern.substring(lastIndex));
+    }
+
+    // Create the regex - use 'm' flag for multiline matching
+    return new RegExp("^" + regexPattern + "$", "m");
+  }
+
+  /**
+   * Escape special regex characters
+   */
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   private getPositionAt(text: string, offset: number): vscode.Position {
