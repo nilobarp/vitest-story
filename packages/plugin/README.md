@@ -156,3 +156,46 @@ story`
     And the cart should contain "Apple"
 `;
 ```
+
+## Custom Reporter
+
+`vitest-story` includes a custom reporter that displays test results in a tree format, showing each step of your scenarios with their individual status and timing information.
+
+### Using the Story Reporter
+
+Add the `StoryReporter` to your `vitest.config.ts`:
+
+```typescript
+import { defineConfig } from "vitest/config";
+import { StoryReporter } from "vitest-story";
+
+export default defineConfig({
+  test: {
+    reporters: [new StoryReporter()],
+  },
+});
+```
+
+### Example Output
+
+The Story Reporter displays:
+- Test file paths with test counts and durations
+- Each scenario with its status (✓ passed, ✗ failed) and duration
+- Individual steps within each scenario with their status and timing
+
+```
+ ✓ test/features/bank.spec.ts (2 tests) 3ms
+   ✓ Successful Withdrawal 2ms
+        ✓ Given my account balance is 100 0ms
+        ✓ When I withdraw 20 0ms
+        ✓ Then my account balance should be 80 1ms
+   ✓ Multiple Withdrawals 1ms
+        ✓ Given my account balance is 500 0ms
+        ✓ When I withdraw 50 0ms
+        ✓ Then I withdraw 150 0ms
+        ✓ And I deposit 100 0ms
+        ✓ Then my account balance should be 400 0ms
+```
+
+This provides clear visibility into which steps are executing and how long they take, making it easier to identify slow or failing steps in your scenarios.
+

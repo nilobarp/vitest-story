@@ -10,6 +10,7 @@ Traditional BDD tools in JavaScript come with overhead - separate feature files,
 - ⚡ **Blazing fast** execution powered by Vite and Vitest
 - 🔒 **Type-safe** step definitions with full TypeScript support
 - 🎨 **VS Code integration** with Test Explorer and step navigation
+- 📊 **Custom reporter** showing individual steps and timing
 - 🔄 **Zero boilerplate** - minimal configuration required
 
 ## 📦 What's Included
