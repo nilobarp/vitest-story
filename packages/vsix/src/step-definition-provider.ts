@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 
 interface StepDefinitionLocation {
   pattern: string;
@@ -16,9 +15,7 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
 
   constructor() {
     // Watch for changes in TypeScript/JavaScript files that might contain step definitions
-    this.watcher = vscode.workspace.createFileSystemWatcher(
-      "**/*.{ts,js}"
-    );
+    this.watcher = vscode.workspace.createFileSystemWatcher("**/*.{ts,js}");
     this.watcher.onDidChange((uri) => this.updateStepDefinitionsInFile(uri));
     this.watcher.onDidCreate((uri) => this.updateStepDefinitionsInFile(uri));
     this.watcher.onDidDelete((uri) => this.removeStepDefinitionsInFile(uri));
@@ -33,8 +30,7 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
 
   async provideDefinition(
     document: vscode.TextDocument,
-    position: vscode.Position,
-    token: vscode.CancellationToken
+    position: vscode.Position
   ): Promise<vscode.Definition | undefined> {
     // Check if we're inside a story template literal
     const text = document.getText();
@@ -44,14 +40,12 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
     const storyRegex = /story\s*`([\s\S]*?)`/g;
     let match;
     let insideStory = false;
-    let storyContent = "";
 
     while ((match = storyRegex.exec(text)) !== null) {
       const storyStart = match.index;
       const storyEnd = match.index + match[0].length;
       if (offset >= storyStart && offset <= storyEnd) {
         insideStory = true;
-        storyContent = match[1];
         break;
       }
     }
@@ -109,7 +103,6 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
       let match;
 
       while ((match = stepDefRegex.exec(text)) !== null) {
-        const keyword = match[1];
         const pattern = match[2];
         const matchStart = match.index;
 
@@ -125,8 +118,11 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
           regex: regex,
         });
       }
-    } catch (e) {
-      console.error(`Failed to parse step definitions in ${uri.fsPath}:`, e);
+    } catch (error) {
+      console.error(
+        `Failed to parse step definitions in ${uri.fsPath}:`,
+        error
+      );
     }
   }
 
@@ -160,10 +156,7 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
     // {int} -> (\d+)
     regexPattern = regexPattern.replace(/\\\{int\\\}/g, "(\\d+)");
     // {float} -> (\d+\.\d+|\d+)
-    regexPattern = regexPattern.replace(
-      /\\\{float\\\}/g,
-      "(\\d+\\.\\d+|\\d+)"
-    );
+    regexPattern = regexPattern.replace(/\\\{float\\\}/g, "(\\d+\\.\\d+|\\d+)");
     // {string} -> (.+)
     regexPattern = regexPattern.replace(/\\\{string\\\}/g, "(.+)");
     // {word} -> (\w+)

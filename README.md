@@ -51,6 +51,7 @@ story`
 ### 🎨 [vitest-story-extension](./packages/vsix) - VS Code Extension
 
 A VS Code extension that supercharges your BDD workflow with:
+
 - **Test Explorer integration** - View and run scenarios directly from VS Code
 - **Go to Definition** - Cmd/Ctrl+Click on steps to navigate to their implementation
 - **Real-time discovery** - Automatically detects new scenarios as you write them
@@ -82,8 +83,12 @@ import { expect } from "vitest";
 
 const cart = {
   items: [] as string[],
-  add(item: string) { this.items.push(item); },
-  size() { return this.items.length; }
+  add(item: string) {
+    this.items.push(item);
+  },
+  size() {
+    return this.items.length;
+  },
 };
 
 Given("the shopping cart is empty", () => {
@@ -118,10 +123,13 @@ npx vitest
 ## 🌟 Key Features
 
 ### Inline Scenarios
+
 No more switching between `.feature` files and step definitions. Your scenarios live right next to your code.
 
 ### Parameter Support
+
 Extract values from steps automatically:
+
 - `{int}` - Integers
 - `{float}` - Floating point numbers
 - `{string}` - Quoted strings
@@ -129,9 +137,16 @@ Extract values from steps automatically:
 - `{customName}` - Any custom named parameter
 
 ### Lifecycle Hooks
+
 Full support for setup and teardown:
+
 ```typescript
-import { beforeScenario, afterScenario, beforeFeature, afterFeature } from "vitest-story";
+import {
+  beforeScenario,
+  afterScenario,
+  beforeFeature,
+  afterFeature,
+} from "vitest-story";
 
 beforeFeature((ctx) => {
   // Runs once before all scenarios
@@ -143,7 +158,9 @@ beforeScenario((ctx) => {
 ```
 
 ### YAML Data Tables
+
 Include structured data in your scenarios:
+
 ```typescript
 story`
   Scenario: Bulk operations
@@ -159,14 +176,14 @@ story`
 
 ## 📊 Comparison with Cucumber JS
 
-| Feature | Cucumber JS | Vitest Story |
-|---------|-------------|--------------|
-| **Speed** | Slow startup | Instant (Vite-powered) |
-| **File Format** | Separate `.feature` files | Inline template literals |
-| **TypeScript** | Requires extra setup | Native support |
-| **Test Runner** | Custom CLI | Vitest (with watch mode) |
-| **Step Matching** | Regex in separate files | Imported functions |
-| **IDE Support** | Limited | Full IntelliSense + Navigation |
+| Feature           | Cucumber JS               | Vitest Story                   |
+| ----------------- | ------------------------- | ------------------------------ |
+| **Speed**         | Slow startup              | Instant (Vite-powered)         |
+| **File Format**   | Separate `.feature` files | Inline template literals       |
+| **TypeScript**    | Requires extra setup      | Native support                 |
+| **Test Runner**   | Custom CLI                | Vitest (with watch mode)       |
+| **Step Matching** | Regex in separate files   | Imported functions             |
+| **IDE Support**   | Limited                   | Full IntelliSense + Navigation |
 
 ## 🏗️ Project Structure
 
@@ -203,6 +220,7 @@ MIT License - see [LICENSE.md](./packages/plugin/LICENSE.md) for details.
 ## 💡 Examples
 
 Check out the [examples directory](./packages/examples) for more complete examples including:
+
 - Basic step definitions
 - Shopping cart with database
 - Auto-loaded step definitions

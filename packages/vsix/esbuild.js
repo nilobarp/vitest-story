@@ -1,18 +1,18 @@
 const esbuild = require("esbuild");
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
-const production = process.argv.includes('--production');
-const watch = process.argv.includes('--watch');
-const bumpMinor = process.argv.includes('--minor');
-const bumpMajor = process.argv.includes('--major');
+const production = process.argv.includes("--production");
+const watch = process.argv.includes("--watch");
+const bumpMinor = process.argv.includes("--minor");
+const bumpMajor = process.argv.includes("--major");
 
 function bumpVersion() {
-  const packageJsonPath = path.join(__dirname, 'package.json');
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-  
-  const [major, minor, patch] = packageJson.version.split('.').map(Number);
-  
+  const packageJsonPath = path.join(__dirname, "package.json");
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+
+  const [major, minor, patch] = packageJson.version.split(".").map(Number);
+
   if (bumpMajor) {
     packageJson.version = `${major + 1}.0.0`;
   } else if (bumpMinor) {
@@ -21,10 +21,13 @@ function bumpVersion() {
     // Default: bump patch
     packageJson.version = `${major}.${minor}.${patch + 1}`;
   }
-  
-  fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
+
+  fs.writeFileSync(
+    packageJsonPath,
+    JSON.stringify(packageJson, null, 2) + "\n"
+  );
   console.log(`Version bumped to ${packageJson.version}`);
-  
+
   return packageJson.version;
 }
 
@@ -32,18 +35,20 @@ function bumpVersion() {
  * @type {import('esbuild').Plugin}
  */
 const esbuildProblemMatcherPlugin = {
-  name: 'esbuild-problem-matcher',
+  name: "esbuild-problem-matcher",
 
   setup(build) {
     build.onStart(() => {
-      console.log('[watch] build started');
+      console.log("[watch] build started");
     });
-    build.onEnd(result => {
+    build.onEnd((result) => {
       result.errors.forEach(({ text, location }) => {
         console.error(`✘ [ERROR] ${text}`);
-        console.error(`    ${location.file}:${location.line}:${location.column}:`);
+        console.error(
+          `    ${location.file}:${location.line}:${location.column}:`
+        );
       });
-      console.log('[watch] build finished');
+      console.log("[watch] build finished");
     });
   },
 };
@@ -54,21 +59,17 @@ async function main() {
     bumpVersion();
   }
   const ctx = await esbuild.context({
-    entryPoints: [
-      'src/extension.ts'
-    ],
+    entryPoints: ["src/extension.ts"],
     bundle: true,
-    format: 'cjs',
+    format: "cjs",
     minify: production,
     sourcemap: !production,
     sourcesContent: false,
-    platform: 'node',
-    outfile: 'out/extension.js',
-    external: ['vscode'],
-    logLevel: 'silent',
-    plugins: [
-      esbuildProblemMatcherPlugin
-    ],
+    platform: "node",
+    outfile: "out/extension.js",
+    external: ["vscode"],
+    logLevel: "silent",
+    plugins: [esbuildProblemMatcherPlugin],
   });
 
   if (watch) {
@@ -79,7 +80,7 @@ async function main() {
   }
 }
 
-main().catch(e => {
+main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
