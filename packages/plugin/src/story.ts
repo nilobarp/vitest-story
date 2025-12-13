@@ -12,6 +12,15 @@ import { parseYaml } from "./yaml-parser.js";
 import { Context, StepRegistryCallback } from "./types.js";
 import { getHooks } from "./hook-registry.js";
 import { getVitestStoryConfig } from "./config.js";
+import { getCurrentTest } from "vitest/suite";
+
+export interface StepExecution {
+  keyword: string;
+  text: string;
+  state: "passed" | "failed";
+  duration: number;
+  error?: Error;
+}
 
 /**
  * Test runner function type
@@ -111,15 +120,52 @@ export async function executeStory(
       }
     }
 
+    // Track step execution
+    const currentTest = getCurrentTest();
+    if (!currentTest) {
+      // Continue without tracking
+      await matched.definition.handler(ctx, params);
+      continue;
+    }
+    
+    // Initialize steps array in meta if not present
+    if (!(currentTest.meta as any).storySteps) {
+      (currentTest.meta as any).storySteps = [];
+    }
+
+    const stepStartTime = Date.now();
+    let stepState: "passed" | "failed" = "passed";
+    let stepError: Error | undefined;
+
     // Execute the step
     try {
       await matched.definition.handler(ctx, params);
     } catch (error) {
+      stepState = "failed";
+      stepError = error instanceof Error ? error : new Error(String(error));
+      
+      // Add step to meta before throwing
+      (currentTest.meta as any).storySteps.push({
+        keyword: token.keyword || "",
+        text: token.text,
+        state: stepState,
+        duration: Date.now() - stepStartTime,
+        error: stepError,
+      });
+
       throw new Error(
         `Step failed: "${token.keyword} ${token.text}"\n` +
           `Error: ${error instanceof Error ? error.message : String(error)}`
       );
     }
+
+    // Add successful step to meta
+    (currentTest.meta as any).storySteps.push({
+      keyword: token.keyword || "",
+      text: token.text,
+      state: stepState,
+      duration: Date.now() - stepStartTime,
+    });
   }
 
   // Execute afterScenario hooks

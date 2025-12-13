@@ -38,3 +38,8 @@ export type { VitestStoryConfig } from "./config.js";
  */
 export { vitestStoryPlugin } from "./plugin.js";
 export type { VitestStoryPluginOptions } from "./plugin.js";
+
+/**
+ * Reporter (for vitest.config.ts)
+ */
+export { StoryReporter } from "./reporter.js";

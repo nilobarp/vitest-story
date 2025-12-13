@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { vitestStoryPlugin } from "vitest-story";
+import { vitestStoryPlugin, StoryReporter } from "vitest-story";
 
 export default defineConfig({
   plugins: [
@@ -16,6 +16,7 @@ export default defineConfig({
     }),
   ],
   test: {
-    // Your other Vitest configuration
+    // Use the custom Story reporter
+    reporters: [new StoryReporter()],
   },
 });
