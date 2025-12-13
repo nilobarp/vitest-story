@@ -127,41 +127,32 @@ export async function executeStory(
     }
 
     const stepStartTime = Date.now();
-    let stepState: "passed" | "failed" = "passed";
-    let stepError: Error | undefined;
 
-    // Execute the step
-    try {
-      await matched.definition.handler(ctx, params);
-    } catch (error) {
-      stepState = "failed";
-      stepError = error instanceof Error ? error : new Error(String(error));
-      
-      // Add step to meta before throwing
+    // Helper to record step execution
+    const recordStep = (state: "passed" | "failed", error?: Error) => {
       if (testMeta?.storySteps) {
         testMeta.storySteps.push({
           keyword: token.keyword || "",
           text: token.text,
-          state: stepState,
+          state,
           duration: Date.now() - stepStartTime,
-          error: stepError,
+          error,
         });
       }
+    };
+
+    // Execute the step
+    try {
+      await matched.definition.handler(ctx, params);
+      recordStep("passed");
+    } catch (error) {
+      const stepError = error instanceof Error ? error : new Error(String(error));
+      recordStep("failed", stepError);
 
       throw new Error(
         `Step failed: "${token.keyword} ${token.text}"\n` +
           `Error: ${error instanceof Error ? error.message : String(error)}`
       );
-    }
-
-    // Add successful step to meta
-    if (testMeta?.storySteps) {
-      testMeta.storySteps.push({
-        keyword: token.keyword || "",
-        text: token.text,
-        state: stepState,
-        duration: Date.now() - stepStartTime,
-      });
     }
   }
 

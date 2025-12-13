@@ -18,11 +18,6 @@ export class StoryReporter implements Reporter {
 
     // Count tests
     const allTests = Array.from(testModule.children.allTests());
-    const passed = allTests.filter((t) => t.result()?.state === "passed").length;
-    const failed = allTests.filter((t) => t.result()?.state === "failed").length;
-    const skipped = allTests.filter(
-      (t) => t.result()?.state === "skipped"
-    ).length;
 
     // Module header
     const icon = state === "passed" ? "✓" : state === "failed" ? "✗" : "○";
