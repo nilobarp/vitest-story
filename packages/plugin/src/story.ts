@@ -116,7 +116,7 @@ export async function executeStory(
       await matched.definition.handler(ctx, params);
     } catch (error) {
       throw new Error(
-        `Step failed at line ${token.lineNumber}: "${token.keyword} ${token.text}"\n` +
+        `Step failed: "${token.keyword} ${token.text}"\n` +
           `Error: ${error instanceof Error ? error.message : String(error)}`
       );
     }

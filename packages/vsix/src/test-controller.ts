@@ -16,7 +16,13 @@ export class VitestStoryTestController implements vscode.Disposable {
     this.controller.createRunProfile(
       "Run",
       vscode.TestRunProfileKind.Run,
-      (request, token) => this.runTests(request, token)
+      (request, token) => this.runTests(request, token, false)
+    );
+
+    this.controller.createRunProfile(
+      "Debug",
+      vscode.TestRunProfileKind.Debug,
+      (request, token) => this.runTests(request, token, true)
     );
 
     this.watcher = vscode.workspace.createFileSystemWatcher(
@@ -86,12 +92,6 @@ export class VitestStoryTestController implements vscode.Disposable {
 
       while ((scenarioMatch = scenarioRegex.exec(content)) !== null) {
         const title = scenarioMatch[1].trim();
-        // Calculate position
-        // The content starts at startOffset + length of "story`" (approx, need to be careful)
-        // Actually match[0] is the whole string including story`...`
-        // match[1] is the content inside backticks.
-        // So content starts at match.index + match[0].indexOf(match[1])
-
         const contentStart = match[0].indexOf(match[1]);
         const scenarioStartInContent = scenarioMatch.index;
         const absoluteOffset =
@@ -100,9 +100,37 @@ export class VitestStoryTestController implements vscode.Disposable {
         const position = this.getPositionAt(text, absoluteOffset);
 
         const testId = `${fileId}::${title}`;
-        const testItem = this.controller.createTestItem(testId, title, uri);
-        testItem.range = new vscode.Range(position, position);
-        children.push(testItem);
+        const scenarioItem = this.controller.createTestItem(testId, title, uri);
+        scenarioItem.range = new vscode.Range(position, position);
+
+        // Parse individual steps within this scenario
+        const stepRegex = /(Given|When|Then|And|But)\s+(.+)/g;
+        const stepChildren: vscode.TestItem[] = [];
+        let stepMatch;
+
+        while ((stepMatch = stepRegex.exec(content)) !== null) {
+          const stepKeyword = stepMatch[1];
+          const stepText = stepMatch[2].trim();
+          const stepStartInContent = stepMatch.index;
+          const stepAbsoluteOffset =
+            startOffset + contentStart + stepStartInContent;
+          const stepPosition = this.getPositionAt(text, stepAbsoluteOffset);
+
+          const stepId = `${testId}::${stepKeyword} ${stepText}`;
+          const stepItem = this.controller.createTestItem(
+            stepId,
+            `${stepKeyword} ${stepText}`,
+            uri
+          );
+          stepItem.range = new vscode.Range(stepPosition, stepPosition);
+          stepChildren.push(stepItem);
+        }
+
+        if (stepChildren.length > 0) {
+          scenarioItem.children.replace(stepChildren);
+        }
+
+        children.push(scenarioItem);
       }
     }
 
@@ -123,7 +151,8 @@ export class VitestStoryTestController implements vscode.Disposable {
 
   private async runTests(
     request: vscode.TestRunRequest,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
+    debug: boolean = false
   ) {
     const run = this.controller.createTestRun(request);
     const queue: vscode.TestItem[] = [];
@@ -152,7 +181,7 @@ export class VitestStoryTestController implements vscode.Disposable {
       const fileItem = this.controller.items.get(fileKey);
 
       if (fileItem) {
-        await this.runFile(uri, fileItem, run, tests);
+        await this.runFile(uri, fileItem, run, tests, debug);
       }
     }
 
@@ -163,7 +192,8 @@ export class VitestStoryTestController implements vscode.Disposable {
     uri: vscode.Uri,
     fileItem: vscode.TestItem,
     run: vscode.TestRun,
-    testsToRun: vscode.TestItem[]
+    testsToRun: vscode.TestItem[],
+    debug: boolean = false
   ) {
     // Mark started
     testsToRun.forEach((t) => run.started(t));
@@ -173,9 +203,23 @@ export class VitestStoryTestController implements vscode.Disposable {
       ? workspaceFolder.uri.fsPath
       : path.dirname(uri.fsPath);
 
+    if (debug) {
+      // Start debugging session
+      await this.debugTest(uri, fileItem, run, testsToRun, cwd);
+    } else {
+      // Run tests normally
+      await this.executeTest(uri, fileItem, run, testsToRun, cwd);
+    }
+  }
+
+  private async executeTest(
+    uri: vscode.Uri,
+    fileItem: vscode.TestItem,
+    run: vscode.TestRun,
+    testsToRun: vscode.TestItem[],
+    cwd: string
+  ) {
     // We run the whole file.
-    // Optimization: if only one test is selected, we could use -t
-    // But for simplicity, run the file.
     // Use pnpm exec to ensure we use the project's vitest
     const args = ["exec", "vitest", "run", uri.fsPath, "--reporter=json"];
 
@@ -199,29 +243,238 @@ export class VitestStoryTestController implements vscode.Disposable {
       }
 
       if (result.testResults) {
+        this.processTestResults(result, fileItem, run);
+      }
+    } catch (e: any) {
+      testsToRun.forEach((t) =>
+        run.failed(t, new vscode.TestMessage(e.message))
+      );
+    }
+  }
+
+  private async debugTest(
+    uri: vscode.Uri,
+    fileItem: vscode.TestItem,
+    run: vscode.TestRun,
+    testsToRun: vscode.TestItem[],
+    cwd: string
+  ) {
+    try {
+      // Start a debug session for vitest
+      const debugConfig: vscode.DebugConfiguration = {
+        type: "node",
+        request: "launch",
+        name: "Debug Vitest Story",
+        runtimeExecutable: "pnpm",
+        runtimeArgs: ["exec", "vitest", "run", uri.fsPath],
+        cwd: cwd,
+        console: "integratedTerminal",
+        internalConsoleOptions: "neverOpen",
+        skipFiles: ["<node_internals>/**"],
+      };
+
+      const success = await vscode.debug.startDebugging(
+        vscode.workspace.getWorkspaceFolder(uri),
+        debugConfig
+      );
+
+      if (!success) {
+        testsToRun.forEach((t) =>
+          run.failed(t, new vscode.TestMessage("Failed to start debugger"))
+        );
+        return;
+      }
+
+      // Wait for debug session to end
+      await new Promise<void>((resolve) => {
+        const disposable = vscode.debug.onDidTerminateDebugSession(
+          (session) => {
+            if (session.name === debugConfig.name) {
+              disposable.dispose();
+              resolve();
+            }
+          }
+        );
+      });
+
+      // After debugging, run the test again to get results
+      await this.executeTest(uri, fileItem, run, testsToRun, cwd);
+    } catch (e: any) {
+      testsToRun.forEach((t) =>
+        run.failed(t, new vscode.TestMessage(e.message))
+      );
+    }
+  }
+
+  private processTestResults(
+    result: any,
+    fileItem: vscode.TestItem,
+    run: vscode.TestRun
+  ) {
+    for (const fileResult of result.testResults) {
+      for (const assertion of fileResult.assertionResults) {
+        const testName = assertion.title;
+
+        // Find the scenario item in children
+        let scenarioItem: vscode.TestItem | undefined;
+        fileItem.children.forEach((child) => {
+          if (child.label === testName) {
+            scenarioItem = child;
+          }
+        });
+
+        if (scenarioItem) {
+          if (assertion.status === "passed") {
+            // Mark scenario and all steps as passed
+            run.passed(scenarioItem);
+            scenarioItem.children.forEach((stepItem) => {
+              run.passed(stepItem);
+            });
+          } else {
+            // Parse the error message to find which step failed
+            let failedStepFound = false;
+            assertion.failureMessages.forEach((msg: string) => {
+              // Extract step line number from error message
+              // Error format: "Step failed: "keyword text""
+              const stepFailedMatch = msg.match(/Step failed: "(.+)"/);
+
+              if (stepFailedMatch && scenarioItem) {
+                const failedLineNumber = parseInt(stepFailedMatch[1], 10);
+                const failedStepText = stepFailedMatch[2];
+
+                // Find the matching step item
+                let foundStep = false;
+                scenarioItem.children.forEach((stepItem) => {
+                  if (
+                    stepItem.range &&
+                    stepItem.range.start.line === failedLineNumber - 1
+                  ) {
+                    // Found the failed step
+                    run.failed(stepItem, new vscode.TestMessage(msg));
+                    foundStep = true;
+                    failedStepFound = true;
+                  }
+                });
+
+                // If we didn't find by line number, try to match by text
+                if (!foundStep) {
+                  scenarioItem.children.forEach((stepItem) => {
+                    if (stepItem.label.includes(failedStepText)) {
+                      run.failed(stepItem, new vscode.TestMessage(msg));
+                      failedStepFound = true;
+                    }
+                  });
+                }
+              }
+            });
+
+            // If we couldn't identify the specific step, mark the scenario as failed
+            if (!failedStepFound) {
+              const messages: vscode.TestMessage[] = [];
+              assertion.failureMessages.forEach((msg: string) => {
+                messages.push(new vscode.TestMessage(msg));
+              });
+              run.failed(scenarioItem, messages);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private async rerunForResults(
+    uri: vscode.Uri,
+    fileItem: vscode.TestItem,
+    run: vscode.TestRun,
+    testsToRun: vscode.TestItem[],
+    cwd: string
+  ) {
+    const args = ["exec", "vitest", "run", uri.fsPath, "--reporter=json"];
+
+    try {
+      const output = await this.execCommand("pnpm", args, cwd);
+      let result: any;
+
+      try {
+        const firstBrace = output.indexOf("{");
+        const lastBrace = output.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace !== -1) {
+          const jsonStr = output.substring(firstBrace, lastBrace + 1);
+          result = JSON.parse(jsonStr);
+        } else {
+          throw new Error("No JSON found in output");
+        }
+      } catch (e) {
+        console.error("Failed to parse vitest output:", output);
+        throw new Error("Failed to parse vitest output");
+      }
+
+      if (result.testResults) {
         for (const fileResult of result.testResults) {
           for (const assertion of fileResult.assertionResults) {
             const testName = assertion.title;
 
-            // Find the test item in children
-            let testItem: vscode.TestItem | undefined;
+            // Find the scenario item in children
+            let scenarioItem: vscode.TestItem | undefined;
             fileItem.children.forEach((child) => {
               if (child.label === testName) {
-                testItem = child;
+                scenarioItem = child;
               }
             });
 
-            if (testItem) {
-              // Only update if it was requested to run (or if we want to update everything we ran)
-              // It's better to update everything we have results for.
+            if (scenarioItem) {
               if (assertion.status === "passed") {
-                run.passed(testItem);
-              } else {
-                const messages: vscode.TestMessage[] = [];
-                assertion.failureMessages.forEach((msg: string) => {
-                  messages.push(new vscode.TestMessage(msg));
+                // Mark scenario and all steps as passed
+                run.passed(scenarioItem);
+                scenarioItem.children.forEach((stepItem) => {
+                  run.passed(stepItem);
                 });
-                run.failed(testItem, messages);
+              } else {
+                // Parse the error message to find which step failed
+                let failedStepFound = false;
+                assertion.failureMessages.forEach((msg: string) => {
+                  // Extract step line number from error message
+                  // Error format: "Step failed: "keyword text""
+                  const stepFailedMatch = msg.match(/Step failed: "(.+)"/);
+
+                  if (stepFailedMatch && scenarioItem) {
+                    const failedLineNumber = parseInt(stepFailedMatch[1], 10);
+                    const failedStepText = stepFailedMatch[2];
+
+                    // Find the matching step item
+                    let foundStep = false;
+                    scenarioItem.children.forEach((stepItem) => {
+                      if (
+                        stepItem.range &&
+                        stepItem.range.start.line === failedLineNumber - 1
+                      ) {
+                        // Found the failed step
+                        run.failed(stepItem, new vscode.TestMessage(msg));
+                        foundStep = true;
+                        failedStepFound = true;
+                      }
+                    });
+
+                    // If we didn't find by line number, try to match by text
+                    if (!foundStep) {
+                      scenarioItem.children.forEach((stepItem) => {
+                        if (stepItem.label.includes(failedStepText)) {
+                          run.failed(stepItem, new vscode.TestMessage(msg));
+                          failedStepFound = true;
+                        }
+                      });
+                    }
+                  }
+                });
+
+                // If we couldn't identify the specific step, mark the scenario as failed
+                if (!failedStepFound) {
+                  const messages: vscode.TestMessage[] = [];
+                  assertion.failureMessages.forEach((msg: string) => {
+                    messages.push(new vscode.TestMessage(msg));
+                  });
+                  run.failed(scenarioItem, messages);
+                }
               }
             }
           }
