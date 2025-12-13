@@ -9,18 +9,15 @@ import {
   getAllSteps,
 } from "./step-registry.js";
 import { parseYaml } from "./yaml-parser.js";
-import { Context, StepRegistryCallback } from "./types.js";
+import {
+  Context,
+  StepRegistryCallback,
+  StepExecution,
+  StoryTaskMeta,
+} from "./types.js";
 import { getHooks } from "./hook-registry.js";
 import { getVitestStoryConfig } from "./config.js";
 import { getCurrentTest } from "vitest/suite";
-
-export interface StepExecution {
-  keyword: string;
-  text: string;
-  state: "passed" | "failed";
-  duration: number;
-  error?: Error;
-}
 
 /**
  * Test runner function type
@@ -122,15 +119,11 @@ export async function executeStory(
 
     // Track step execution
     const currentTest = getCurrentTest();
-    if (!currentTest) {
-      // Continue without tracking
-      await matched.definition.handler(ctx, params);
-      continue;
-    }
+    const testMeta = currentTest?.meta as StoryTaskMeta | undefined;
     
     // Initialize steps array in meta if not present
-    if (!(currentTest.meta as any).storySteps) {
-      (currentTest.meta as any).storySteps = [];
+    if (testMeta && !testMeta.storySteps) {
+      testMeta.storySteps = [];
     }
 
     const stepStartTime = Date.now();
@@ -145,13 +138,15 @@ export async function executeStory(
       stepError = error instanceof Error ? error : new Error(String(error));
       
       // Add step to meta before throwing
-      (currentTest.meta as any).storySteps.push({
-        keyword: token.keyword || "",
-        text: token.text,
-        state: stepState,
-        duration: Date.now() - stepStartTime,
-        error: stepError,
-      });
+      if (testMeta?.storySteps) {
+        testMeta.storySteps.push({
+          keyword: token.keyword || "",
+          text: token.text,
+          state: stepState,
+          duration: Date.now() - stepStartTime,
+          error: stepError,
+        });
+      }
 
       throw new Error(
         `Step failed: "${token.keyword} ${token.text}"\n` +
@@ -160,12 +155,14 @@ export async function executeStory(
     }
 
     // Add successful step to meta
-    (currentTest.meta as any).storySteps.push({
-      keyword: token.keyword || "",
-      text: token.text,
-      state: stepState,
-      duration: Date.now() - stepStartTime,
-    });
+    if (testMeta?.storySteps) {
+      testMeta.storySteps.push({
+        keyword: token.keyword || "",
+        text: token.text,
+        state: stepState,
+        duration: Date.now() - stepStartTime,
+      });
+    }
   }
 
   // Execute afterScenario hooks

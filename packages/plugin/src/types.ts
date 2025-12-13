@@ -54,3 +54,21 @@ export interface HookDefinition {
   type: "beforeFeature" | "afterFeature" | "beforeScenario" | "afterScenario";
   handler: HookFunction;
 }
+
+/**
+ * Step execution information for reporter
+ */
+export interface StepExecution {
+  keyword: string;
+  text: string;
+  state: "passed" | "failed";
+  duration: number;
+  error?: Error;
+}
+
+/**
+ * Extended task metadata with story steps
+ */
+export interface StoryTaskMeta {
+  storySteps?: StepExecution[];
+}

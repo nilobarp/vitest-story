@@ -43,3 +43,8 @@ export type { VitestStoryPluginOptions } from "./plugin.js";
  * Reporter (for vitest.config.ts)
  */
 export { StoryReporter } from "./reporter.js";
+
+/**
+ * Types
+ */
+export type { StepExecution, StoryTaskMeta } from "./types.js";

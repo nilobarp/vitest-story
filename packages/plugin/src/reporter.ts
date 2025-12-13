@@ -5,14 +5,7 @@
 
 import type { Reporter } from "vitest/reporters";
 import type { TestCase, TestModule } from "vitest/node";
-
-export interface StepExecution {
-  keyword: string;
-  text: string;
-  state: "passed" | "failed";
-  duration: number;
-  error?: Error;
-}
+import type { StepExecution, StoryTaskMeta } from "./types.js";
 
 /**
  * Story reporter that shows each step of the scenario
@@ -56,8 +49,8 @@ export class StoryReporter implements Reporter {
     console.log(`   ${icon} ${testName} ${duration}ms`);
 
     // Get step executions from task meta
-    const meta = testCase.meta() as any;
-    const steps = meta.storySteps as StepExecution[] | undefined;
+    const meta = testCase.meta() as StoryTaskMeta;
+    const steps = meta.storySteps;
 
     if (steps && steps.length > 0) {
       // Print each step
