@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "build:plugin": "pnpm --filter plugin build",
-    "build:vsix": "pnpm --filter story-vsix compile",
-    "pub:vsix": "pnpm --filter story-vsix compile && pnpm --filter story-vsix package --no-dependencies",
+    "build:vsix": "pnpm --filter vsix compile",
+    "pub:vsix": "pnpm --filter vsix compile && pnpm --filter vsix package --no-dependencies",
     "lint": "eslint . --ext .ts,.js",
     "format": "prettier --write ."
   },

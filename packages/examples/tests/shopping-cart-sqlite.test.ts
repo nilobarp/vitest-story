@@ -1,5 +1,5 @@
 import { beforeAll, afterAll } from "vitest";
-import { story } from "@vitest-story/plugin";
+import { story } from "vitest-story";
 import Database from "better-sqlite3";
 import fs from "fs";
 import os from "os";

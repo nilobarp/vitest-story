@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { vitestStoryPlugin } from "@vitest-story/plugin";
+import { vitestStoryPlugin } from "vitest-story";
 
 export default defineConfig({
   plugins: [

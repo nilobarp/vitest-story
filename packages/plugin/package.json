@@ -1,5 +1,5 @@
 {
-  "name": "@vitest-story/plugin",
+  "name": "vitest-story",
   "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",
@@ -28,5 +28,9 @@
     "vitest": {
       "optional": false
     }
+  },
+  "author": {
+    "name": "nilobarp",
+    "email": "nilobarp@gmail.com"
   }
 }
