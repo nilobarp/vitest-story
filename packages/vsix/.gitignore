@@ -1,0 +1,5 @@
+out/
+node_modules/
+*.vsix
+test-fixture.js
+test-fixture.js.map

@@ -1,0 +1,68 @@
+{
+  "name": "vitest-story-extension",
+  "displayName": "Vitest Story",
+  "description": "VS Code extension for Vitest Story testing DSL",
+  "version": "0.0.4",
+  "publisher": "nilobarp",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Testing"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:typescript",
+    "onLanguage:javascript"
+  ],
+  "main": "./out/extension.js",
+  "license": "MIT",
+  "repository": {
+    "url": "https://github.com/nilobarp/scripture"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "scripture.implementMissingSteps",
+        "title": "Scripture: Implement Missing Steps"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Scripture",
+      "properties": {
+        "scripture.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable Scripture validation"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "vsce package",
+    "test": "echo \"No tests yet\""
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.19.26",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.27.1",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.3"
+  },
+  "peerDependencies": {
+    "vitest": "^4.0.15"
+  },
+  "author": {
+    "name": "nilobarp",
+    "email": "nilobarp@gmail.com"
+  }
+}

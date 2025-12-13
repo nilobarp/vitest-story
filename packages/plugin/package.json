@@ -30,7 +30,7 @@
       "optional": false
     }
   },
-  "files": ["./dist"],
+  "files": ["dist"],
   "author": {
     "name": "nilobarp",
     "email": "nilobarp@gmail.com"
