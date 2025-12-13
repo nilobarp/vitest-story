@@ -1,7 +1,6 @@
 import { beforeAll, afterAll } from "vitest";
 import { story } from "@vitest-story/plugin";
 import Database from "better-sqlite3";
-import path from "path";
 import fs from "fs";
 import os from "os";
 import "../steps/shopping_cart_steps";
@@ -11,7 +10,7 @@ let dbPath: string;
 
 beforeAll(async () => {
   const tempDir = os.tmpdir();
-  dbPath = path.join(tempDir, `test-${Date.now()}.db`);
+  dbPath = __dirname + `/shopping_cart_test_${Date.now()}.db`;
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
   db = new Database(dbPath);

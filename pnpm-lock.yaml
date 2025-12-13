@@ -42,6 +42,9 @@ importers:
       '@testcontainers/mongodb':
         specifier: ^11.10.0
         version: 11.10.0
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
       better-sqlite3:
         specifier: ^9.4.3
         version: 9.6.0
@@ -634,6 +637,9 @@ packages:
 
   '@testcontainers/mongodb@11.10.0':
     resolution: {integrity: sha512-PfnM+0UWddjzIhTgmYumyvt5tA0GiZ4uTf/SFEhmtRDcmBM70oZvQBdwDeYp7nMjkmxJFATPAXSR1Px7418bAg==}
+
+  '@types/better-sqlite3@7.6.13':
+    resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -2230,6 +2236,10 @@ snapshots:
       - bare-buffer
       - react-native-b4a
       - supports-color
+
+  '@types/better-sqlite3@7.6.13':
+    dependencies:
+      '@types/node': 25.0.1
 
   '@types/chai@5.2.3':
     dependencies:

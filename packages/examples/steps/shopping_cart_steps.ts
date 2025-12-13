@@ -47,9 +47,24 @@ interface IOrder {
 
 // Sample products for testing
 const sampleProducts = [
-  { id: "prod_001", name: "Wireless Headphones", price: 99.99 },
-  { id: "prod_002", name: "Bluetooth Speaker", price: 49.99 },
-  { id: "prod_003", name: "USB Cable", price: 12.99 },
+  {
+    id: "prod_001",
+    name: "Wireless Headphones",
+    price: 99.99,
+    description: "High-quality wireless headphones with noise cancellation.",
+  },
+  {
+    id: "prod_002",
+    name: "Bluetooth Speaker",
+    price: 49.99,
+    description: "Portable Bluetooth speaker with excellent sound quality.",
+  },
+  {
+    id: "prod_003",
+    name: "USB Cable",
+    price: 12.99,
+    description: "Durable USB cable for charging and data transfer.",
+  },
 ];
 
 // Database setup

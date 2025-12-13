@@ -33,7 +33,7 @@ When("I perform an action", (ctx) => {
 });
 
 Then("I see a result", (ctx) => {
-  expect(ctx.state).toBe("acteded");
+  expect(ctx.state).toBe("acted");
 });
 
 // Generic value steps
