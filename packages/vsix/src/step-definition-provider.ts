@@ -37,6 +37,7 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
     const offset = document.offsetAt(position);
 
     // Find if we're inside a story`` block
+    // Create a new RegExp each time to avoid lastIndex state issues
     const storyRegex = /story\s*`([\s\S]*?)`/g;
     let match;
     let insideStory = false;
@@ -66,11 +67,27 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
 
     const stepText = stepMatch[2].trim();
 
+    // Calculate the range for the entire step line (excluding leading whitespace)
+    const lineStart = line.text.indexOf(lineText);
+    const originSelectionRange = new vscode.Range(
+      position.line,
+      lineStart,
+      position.line,
+      lineStart + lineText.length
+    );
+
     // Find matching step definition
     const matchingDefinitions = this.findMatchingStepDefinitions(stepText);
     if (matchingDefinitions.length > 0) {
-      // Return all matching definitions
-      return matchingDefinitions.map((def) => def.location);
+      // Return LocationLink objects with origin selection range to make the entire step clickable
+      return matchingDefinitions.map((def) => ({
+        targetUri: def.location.uri,
+        targetRange: def.location.range,
+        targetSelectionRange: def.location.range,
+        originSelectionRange: originSelectionRange,
+        range: originSelectionRange,
+        uri: document.uri,
+      }));
     }
 
     return undefined;
@@ -98,12 +115,14 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
       );
 
       // Parse step definitions: Given("pattern", ...), When("pattern", ...), Then("pattern", ...)
+      // Match string literals properly, handling escaped quotes and different quote types
       const stepDefRegex =
-        /(Given|When|Then)\s*\(\s*[`'"]([^`'"]+)[`'"][\s\S]*?\)/g;
+        /(Given|When|Then)\s*\(\s*(?:`([^`]*)`|'([^']*)'|"([^"]*)")[\s\S]*?\)/g;
       let match;
 
       while ((match = stepDefRegex.exec(text)) !== null) {
-        const pattern = match[2];
+        // Pattern can be in match[2] (backtick), match[3] (single quote), or match[4] (double quote)
+        const pattern = match[2] || match[3] || match[4];
         const matchStart = match.index;
 
         const position = this.getPositionAt(text, matchStart);
