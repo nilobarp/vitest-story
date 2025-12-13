@@ -2,7 +2,7 @@
   "name": "vitest-story-extension",
   "displayName": "Vitest Story",
   "description": "VS Code extension for Vitest Story testing DSL",
-  "version": "0.0.5",
+  "version": "0.0.9",
   "publisher": "nilobarp",
   "engines": {
     "vscode": "^1.85.0"
@@ -19,32 +19,14 @@
   "main": "./out/extension.js",
   "license": "MIT",
   "repository": {
-    "url": "https://github.com/nilobarp/scripture"
+    "url": "https://github.com/nilobarp/vitest-story"
   },
-  "contributes": {
-    "commands": [
-      {
-        "command": "scripture.implementMissingSteps",
-        "title": "Scripture: Implement Missing Steps"
-      }
-    ],
-    "configuration": {
-      "type": "object",
-      "title": "Scripture",
-      "properties": {
-        "scripture.enable": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable/disable Scripture validation"
-        }
-      }
-    }
-  },
+  "contributes": {},
+  "icon": "./images/tornado.png",
   "scripts": {
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
-    "package": "vsce package",
-    "test": "echo \"No tests yet\""
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

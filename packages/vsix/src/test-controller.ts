@@ -270,7 +270,11 @@ export class VitestStoryTestController implements vscode.Disposable {
         cwd: cwd,
         console: "integratedTerminal",
         internalConsoleOptions: "neverOpen",
-        skipFiles: ["<node_internals>/**"],
+        skipFiles: [
+          "<node_internals>/**",
+          "**/node_modules/**",
+          "**/node_modules/.pnpm/**",
+        ],
       };
 
       const success = await vscode.debug.startDebugging(
