@@ -7,6 +7,7 @@ A VS Code extension that enhances your development experience when working with 
 ### 🧪 Test Explorer Integration
 
 The extension automatically discovers and displays your Vitest Story scenarios in the VS Code Test Explorer. You can:
+
 - View all scenarios organized by file
 - See individual steps within each scenario
 - Run individual scenarios or entire test files
@@ -28,6 +29,7 @@ story`
 ```
 
 The extension intelligently matches step patterns, including those with parameters:
+
 - Simple patterns: `Given I am logged in`
 - With placeholders: `Given my account balance is {int}`
 - With string parameters: `When I add {string} to the cart`
