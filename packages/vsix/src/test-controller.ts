@@ -6,6 +6,7 @@ import { spawn } from "child_process";
 export class VitestStoryTestController implements vscode.Disposable {
   private controller: vscode.TestController;
   private watcher: vscode.FileSystemWatcher;
+  private packageManagerCache: Map<string, string> = new Map();
 
   constructor(private context: vscode.ExtensionContext) {
     this.controller = vscode.tests.createTestController(
@@ -43,35 +44,57 @@ export class VitestStoryTestController implements vscode.Disposable {
   }
 
   private async detectPackageManager(cwd: string): Promise<string> {
+    // Check cache first
+    if (this.packageManagerCache.has(cwd)) {
+      return this.packageManagerCache.get(cwd)!;
+    }
+
     try {
       // First, check if packageManager is defined in package.json
       const packageJsonPath = path.join(cwd, "package.json");
       if (fs.existsSync(packageJsonPath)) {
-        const packageJson = JSON.parse(
-          fs.readFileSync(packageJsonPath, "utf8")
-        );
-        if (packageJson.packageManager) {
-          // packageManager field format is like "pnpm@8.0.0" or "npm@9.0.0"
-          const packageManager = packageJson.packageManager.split("@")[0];
-          return packageManager;
+        try {
+          const packageJson = JSON.parse(
+            fs.readFileSync(packageJsonPath, "utf8")
+          );
+          if (
+            packageJson.packageManager &&
+            typeof packageJson.packageManager === "string"
+          ) {
+            // packageManager field format is like "pnpm@8.0.0" or "npm@9.0.0"
+            const packageManager = packageJson.packageManager.split("@")[0];
+            this.packageManagerCache.set(cwd, packageManager);
+            return packageManager;
+          }
+        } catch (e) {
+          console.error(
+            `Failed to parse package.json at ${packageJsonPath}:`,
+            e
+          );
+          // Continue to lock file detection
         }
       }
 
       // Fall back to detecting lock files
       if (fs.existsSync(path.join(cwd, "pnpm-lock.yaml"))) {
+        this.packageManagerCache.set(cwd, "pnpm");
         return "pnpm";
       }
       if (fs.existsSync(path.join(cwd, "yarn.lock"))) {
+        this.packageManagerCache.set(cwd, "yarn");
         return "yarn";
       }
       if (fs.existsSync(path.join(cwd, "package-lock.json"))) {
+        this.packageManagerCache.set(cwd, "npm");
         return "npm";
       }
       if (fs.existsSync(path.join(cwd, "bun.lockb"))) {
+        this.packageManagerCache.set(cwd, "bun");
         return "bun";
       }
 
       // Default to npm if nothing found
+      this.packageManagerCache.set(cwd, "npm");
       return "npm";
     } catch (e) {
       console.error("Failed to detect package manager:", e);
