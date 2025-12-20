@@ -63,7 +63,13 @@ export class VitestStoryTestController implements vscode.Disposable {
           ) {
             // packageManager field format is like "pnpm@8.0.0" or "npm@9.0.0"
             // For scoped packages like "@scope/name@version", extract the name part
-            let packageManager = packageJson.packageManager;
+            let packageManager = packageJson.packageManager.trim();
+            
+            // Handle empty or invalid values
+            if (!packageManager) {
+              // Continue to lock file detection
+              throw new Error("Empty packageManager field");
+            }
             
             // Remove version (everything after last @)
             const lastAtIndex = packageManager.lastIndexOf("@");
@@ -76,7 +82,16 @@ export class VitestStoryTestController implements vscode.Disposable {
               const scopeEnd = packageManager.indexOf("/");
               if (scopeEnd > 0) {
                 packageManager = packageManager.substring(scopeEnd + 1);
+              } else {
+                // Invalid scoped package without name (e.g., just "@scope")
+                // Continue to lock file detection
+                throw new Error("Invalid scoped package format");
               }
+            }
+            
+            // Final validation - package manager name should not be empty
+            if (!packageManager) {
+              throw new Error("Could not extract package manager name");
             }
             
             this.packageManagerCache.set(cwd, packageManager);
