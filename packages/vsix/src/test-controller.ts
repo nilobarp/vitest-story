@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
+import * as fs from "fs";
 import { spawn } from "child_process";
 
 export class VitestStoryTestController implements vscode.Disposable {
@@ -39,6 +40,43 @@ export class VitestStoryTestController implements vscode.Disposable {
   dispose() {
     this.controller.dispose();
     this.watcher.dispose();
+  }
+
+  private async detectPackageManager(cwd: string): Promise<string> {
+    try {
+      // First, check if packageManager is defined in package.json
+      const packageJsonPath = path.join(cwd, "package.json");
+      if (fs.existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(
+          fs.readFileSync(packageJsonPath, "utf8")
+        );
+        if (packageJson.packageManager) {
+          // packageManager field format is like "pnpm@8.0.0" or "npm@9.0.0"
+          const packageManager = packageJson.packageManager.split("@")[0];
+          return packageManager;
+        }
+      }
+
+      // Fall back to detecting lock files
+      if (fs.existsSync(path.join(cwd, "pnpm-lock.yaml"))) {
+        return "pnpm";
+      }
+      if (fs.existsSync(path.join(cwd, "yarn.lock"))) {
+        return "yarn";
+      }
+      if (fs.existsSync(path.join(cwd, "package-lock.json"))) {
+        return "npm";
+      }
+      if (fs.existsSync(path.join(cwd, "bun.lockb"))) {
+        return "bun";
+      }
+
+      // Default to npm if nothing found
+      return "npm";
+    } catch (e) {
+      console.error("Failed to detect package manager:", e);
+      return "npm";
+    }
   }
 
   private async scanWorkspace() {
@@ -220,11 +258,12 @@ export class VitestStoryTestController implements vscode.Disposable {
     cwd: string
   ) {
     // We run the whole file.
-    // Use pnpm exec to ensure we use the project's vitest
+    // Detect package manager and use exec to ensure we use the project's vitest
+    const packageManager = await this.detectPackageManager(cwd);
     const args = ["exec", "vitest", "run", uri.fsPath, "--reporter=json"];
 
     try {
-      const output = await this.execCommand("pnpm", args, cwd);
+      const output = await this.execCommand(packageManager, args, cwd);
       let result: any;
 
       try {
@@ -261,11 +300,12 @@ export class VitestStoryTestController implements vscode.Disposable {
   ) {
     try {
       // Start a debug session for vitest
+      const packageManager = await this.detectPackageManager(cwd);
       const debugConfig: vscode.DebugConfiguration = {
         type: "node",
         request: "launch",
         name: "Debug Vitest Story",
-        runtimeExecutable: "pnpm",
+        runtimeExecutable: packageManager,
         runtimeArgs: ["exec", "vitest", "run", uri.fsPath],
         cwd: cwd,
         console: "integratedTerminal",
@@ -393,10 +433,11 @@ export class VitestStoryTestController implements vscode.Disposable {
     testsToRun: vscode.TestItem[],
     cwd: string
   ) {
+    const packageManager = await this.detectPackageManager(cwd);
     const args = ["exec", "vitest", "run", uri.fsPath, "--reporter=json"];
 
     try {
-      const output = await this.execCommand("pnpm", args, cwd);
+      const output = await this.execCommand(packageManager, args, cwd);
       let result: any;
 
       try {
