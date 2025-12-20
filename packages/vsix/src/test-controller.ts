@@ -62,7 +62,23 @@ export class VitestStoryTestController implements vscode.Disposable {
             typeof packageJson.packageManager === "string"
           ) {
             // packageManager field format is like "pnpm@8.0.0" or "npm@9.0.0"
-            const packageManager = packageJson.packageManager.split("@")[0];
+            // For scoped packages like "@scope/name@version", extract the name part
+            let packageManager = packageJson.packageManager;
+            
+            // Remove version (everything after last @)
+            const lastAtIndex = packageManager.lastIndexOf("@");
+            if (lastAtIndex > 0) {
+              packageManager = packageManager.substring(0, lastAtIndex);
+            }
+            
+            // Remove scope if present (everything before and including first @/)
+            if (packageManager.startsWith("@")) {
+              const scopeEnd = packageManager.indexOf("/");
+              if (scopeEnd > 0) {
+                packageManager = packageManager.substring(scopeEnd + 1);
+              }
+            }
+            
             this.packageManagerCache.set(cwd, packageManager);
             return packageManager;
           }
