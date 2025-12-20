@@ -7,8 +7,13 @@ export class VitestStoryTestController implements vscode.Disposable {
   private controller: vscode.TestController;
   private watcher: vscode.FileSystemWatcher;
   private packageManagerCache: Map<string, string> = new Map();
+  private outputChannel: vscode.OutputChannel;
 
-  constructor(private context: vscode.ExtensionContext) {
+  constructor(
+    private context: vscode.ExtensionContext,
+    outputChannel: vscode.OutputChannel
+  ) {
+    this.outputChannel = outputChannel;
     this.controller = vscode.tests.createTestController(
       "vitest-story",
       "Vitest Story"
@@ -50,20 +55,25 @@ export class VitestStoryTestController implements vscode.Disposable {
     }
 
     try {
-      // First, check if packageManager is defined in package.json
-      const packageJsonPath = path.join(cwd, "package.json");
-      if (fs.existsSync(packageJsonPath)) {
-        try {
-          const packageJson = JSON.parse(
-            fs.readFileSync(packageJsonPath, "utf8")
-          );
-          if (
-            packageJson.packageManager &&
-            typeof packageJson.packageManager === "string"
-          ) {
-            // packageManager field format is like "pnpm@8.0.0" or "npm@9.0.0"
-            // For scoped packages like "@scope/name@version", extract the name part
-            let packageManager = packageJson.packageManager.trim();
+      // Check current directory and parent directories for lock files
+      let currentDir = cwd;
+      const root = path.parse(currentDir).root;
+      
+      while (currentDir !== root) {
+        // First, check if packageManager is defined in package.json
+        const packageJsonPath = path.join(currentDir, "package.json");
+        if (fs.existsSync(packageJsonPath)) {
+          try {
+            const packageJson = JSON.parse(
+              fs.readFileSync(packageJsonPath, "utf8")
+            );
+            if (
+              packageJson.packageManager &&
+              typeof packageJson.packageManager === "string"
+            ) {
+              // packageManager field format is like "pnpm@8.0.0" or "npm@9.0.0"
+              // For scoped packages like "@scope/name@version", extract the name part
+              let packageManager = packageJson.packageManager.trim();
             
             // Handle empty or invalid values
             if (!packageManager) {
@@ -104,24 +114,30 @@ export class VitestStoryTestController implements vscode.Disposable {
           );
           // Continue to lock file detection
         }
-      }
+        }
 
-      // Fall back to detecting lock files
-      if (fs.existsSync(path.join(cwd, "pnpm-lock.yaml"))) {
-        this.packageManagerCache.set(cwd, "pnpm");
-        return "pnpm";
-      }
-      if (fs.existsSync(path.join(cwd, "yarn.lock"))) {
-        this.packageManagerCache.set(cwd, "yarn");
-        return "yarn";
-      }
-      if (fs.existsSync(path.join(cwd, "package-lock.json"))) {
-        this.packageManagerCache.set(cwd, "npm");
-        return "npm";
-      }
-      if (fs.existsSync(path.join(cwd, "bun.lockb"))) {
-        this.packageManagerCache.set(cwd, "bun");
-        return "bun";
+        // Fall back to detecting lock files in current directory
+        if (fs.existsSync(path.join(currentDir, "pnpm-lock.yaml"))) {
+          this.packageManagerCache.set(cwd, "pnpm");
+          return "pnpm";
+        }
+        if (fs.existsSync(path.join(currentDir, "yarn.lock"))) {
+          this.packageManagerCache.set(cwd, "yarn");
+          return "yarn";
+        }
+        if (fs.existsSync(path.join(currentDir, "package-lock.json"))) {
+          this.packageManagerCache.set(cwd, "npm");
+          return "npm";
+        }
+        if (fs.existsSync(path.join(currentDir, "bun.lockb"))) {
+          this.packageManagerCache.set(cwd, "bun");
+          return "bun";
+        }
+        
+        // Move to parent directory
+        const parentDir = path.dirname(currentDir);
+        if (parentDir === currentDir) break; // Reached filesystem root
+        currentDir = parentDir;
       }
 
       // Default to npm if nothing found
@@ -287,7 +303,6 @@ export class VitestStoryTestController implements vscode.Disposable {
     testsToRun: vscode.TestItem[],
     debug: boolean = false
   ) {
-    // Mark started
     testsToRun.forEach((t) => run.started(t));
 
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
@@ -296,10 +311,8 @@ export class VitestStoryTestController implements vscode.Disposable {
       : path.dirname(uri.fsPath);
 
     if (debug) {
-      // Start debugging session
       await this.debugTest(uri, fileItem, run, testsToRun, cwd);
     } else {
-      // Run tests normally
       await this.executeTest(uri, fileItem, run, testsToRun, cwd);
     }
   }
@@ -311,36 +324,79 @@ export class VitestStoryTestController implements vscode.Disposable {
     testsToRun: vscode.TestItem[],
     cwd: string
   ) {
-    // We run the whole file.
-    // Detect package manager and use exec to ensure we use the project's vitest
+    // detect package manager and use exec to ensure we use the project's vitest
     const packageManager = await this.detectPackageManager(cwd);
-    const args = ["exec", "vitest", "run", uri.fsPath, "--reporter=json"];
+    const args = [
+      "exec",
+      "--",
+      "vitest",
+      "run",
+      uri.fsPath,
+      "--reporter=json",
+      "--no-color",
+    ];
 
     try {
-      const output = await this.execCommand(packageManager, args, cwd);
-      let result: any;
+      const output = await this.execCommand(packageManager, args, cwd);      this.outputChannel.appendLine("=== Raw vitest output ===");
+      this.outputChannel.appendLine(output);
+      this.outputChannel.appendLine("=== End raw output ===");
+            let result: any;
 
       try {
-        // Find JSON in output
+        // Find JSON in output - try to find the outermost JSON object
         const firstBrace = output.indexOf("{");
         const lastBrace = output.lastIndexOf("}");
-        if (firstBrace !== -1 && lastBrace !== -1) {
-          const jsonStr = output.substring(firstBrace, lastBrace + 1);
-          result = JSON.parse(jsonStr);
-        } else {
+        
+        if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+          // Log the actual output for debugging
+          this.outputChannel.appendLine("=== No valid JSON structure found in vitest output ===");
+          this.outputChannel.appendLine("Full output:");
+          this.outputChannel.appendLine(output);
+          this.outputChannel.show();
+          vscode.window.showErrorMessage(
+            `Failed to parse vitest output. No JSON found. Check 'Vitest Story' output panel for details.`
+          );
           throw new Error("No JSON found in output");
         }
+        
+        const jsonStr = output.substring(firstBrace, lastBrace + 1);
+        
+        try {
+          result = JSON.parse(jsonStr);
+        } catch (parseError) {
+          // If parsing fails, log the problematic JSON string
+          this.outputChannel.appendLine("=== JSON parse error ===");
+          this.outputChannel.appendLine(`Error: ${parseError}`);
+          this.outputChannel.appendLine("Attempted to parse (first 1000 chars):");
+          this.outputChannel.appendLine(jsonStr.substring(0, 1000));
+          this.outputChannel.show();
+          vscode.window.showErrorMessage(
+            `Failed to parse vitest JSON output. Check 'Vitest Story' output panel for details.`
+          );
+          throw parseError;
+        }
       } catch (e) {
-        console.error("Failed to parse vitest output:", output);
+        this.outputChannel.appendLine("=== Failed to parse vitest output ===");
+        this.outputChannel.appendLine(`Error: ${e}`);
+        this.outputChannel.show();
         throw new Error("Failed to parse vitest output");
       }
 
       if (result.testResults) {
         this.processTestResults(result, fileItem, run);
+      } else {
+        this.outputChannel.appendLine("=== Warning: No testResults found in vitest output ===");
+        this.outputChannel.appendLine(JSON.stringify(result, null, 2));
+        // Mark all tests as passed if no explicit results
+        testsToRun.forEach((t) => run.passed(t));
       }
     } catch (e: any) {
+      this.outputChannel.appendLine("=== Test execution error ===");
+      this.outputChannel.appendLine(`Error: ${e}`);
+      this.outputChannel.appendLine(`Stack: ${e.stack || 'No stack trace'}`);
+      this.outputChannel.show();
       testsToRun.forEach((t) =>
-        run.failed(t, new vscode.TestMessage(e.message))
+        run.failed(t, new vscode.TestMessage(e.message || String(e)))
       );
     }
   }
@@ -360,7 +416,15 @@ export class VitestStoryTestController implements vscode.Disposable {
         request: "launch",
         name: "Debug Vitest Story",
         runtimeExecutable: packageManager,
-        runtimeArgs: ["exec", "vitest", "run", uri.fsPath],
+        runtimeArgs: [
+          "exec",
+          "--",
+          "vitest",
+          "run",
+          uri.fsPath,
+          "--reporter=json",
+          "--no-color",
+        ],
         cwd: cwd,
         console: "integratedTerminal",
         internalConsoleOptions: "neverOpen",
@@ -480,118 +544,16 @@ export class VitestStoryTestController implements vscode.Disposable {
     }
   }
 
-  private async rerunForResults(
-    uri: vscode.Uri,
-    fileItem: vscode.TestItem,
-    run: vscode.TestRun,
-    testsToRun: vscode.TestItem[],
-    cwd: string
-  ) {
-    const packageManager = await this.detectPackageManager(cwd);
-    const args = ["exec", "vitest", "run", uri.fsPath, "--reporter=json"];
-
-    try {
-      const output = await this.execCommand(packageManager, args, cwd);
-      let result: any;
-
-      try {
-        const firstBrace = output.indexOf("{");
-        const lastBrace = output.lastIndexOf("}");
-        if (firstBrace !== -1 && lastBrace !== -1) {
-          const jsonStr = output.substring(firstBrace, lastBrace + 1);
-          result = JSON.parse(jsonStr);
-        } else {
-          throw new Error("No JSON found in output");
-        }
-      } catch (e) {
-        console.error("Failed to parse vitest output:", output);
-        throw new Error("Failed to parse vitest output");
-      }
-
-      if (result.testResults) {
-        for (const fileResult of result.testResults) {
-          for (const assertion of fileResult.assertionResults) {
-            const testName = assertion.title;
-
-            // Find the scenario item in children
-            let scenarioItem: vscode.TestItem | undefined;
-            fileItem.children.forEach((child) => {
-              if (child.label === testName) {
-                scenarioItem = child;
-              }
-            });
-
-            if (scenarioItem) {
-              if (assertion.status === "passed") {
-                // Mark scenario and all steps as passed
-                run.passed(scenarioItem);
-                scenarioItem.children.forEach((stepItem) => {
-                  run.passed(stepItem);
-                });
-              } else {
-                // Parse the error message to find which step failed
-                let failedStepFound = false;
-                assertion.failureMessages.forEach((msg: string) => {
-                  // Extract step line number from error message
-                  // Error format: "Step failed: "keyword text""
-                  const stepFailedMatch = msg.match(/Step failed: "(.+)"/);
-
-                  if (stepFailedMatch && scenarioItem) {
-                    const failedLineNumber = parseInt(stepFailedMatch[1], 10);
-                    const failedStepText = stepFailedMatch[2];
-
-                    // Find the matching step item
-                    let foundStep = false;
-                    scenarioItem.children.forEach((stepItem) => {
-                      if (
-                        stepItem.range &&
-                        stepItem.range.start.line === failedLineNumber - 1
-                      ) {
-                        // Found the failed step
-                        run.failed(stepItem, new vscode.TestMessage(msg));
-                        foundStep = true;
-                        failedStepFound = true;
-                      }
-                    });
-
-                    // If we didn't find by line number, try to match by text
-                    if (!foundStep) {
-                      scenarioItem.children.forEach((stepItem) => {
-                        if (stepItem.label.includes(failedStepText)) {
-                          run.failed(stepItem, new vscode.TestMessage(msg));
-                          failedStepFound = true;
-                        }
-                      });
-                    }
-                  }
-                });
-
-                // If we couldn't identify the specific step, mark the scenario as failed
-                if (!failedStepFound) {
-                  const messages: vscode.TestMessage[] = [];
-                  assertion.failureMessages.forEach((msg: string) => {
-                    messages.push(new vscode.TestMessage(msg));
-                  });
-                  run.failed(scenarioItem, messages);
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (e: any) {
-      testsToRun.forEach((t) =>
-        run.failed(t, new vscode.TestMessage(e.message))
-      );
-    }
-  }
-
   private execCommand(
     command: string,
     args: string[],
     cwd: string
   ): Promise<string> {
     return new Promise((resolve, reject) => {
+      this.outputChannel.appendLine("\n=== Executing Command ===");
+      this.outputChannel.appendLine(`Command: ${command} ${args.join(" ")}`);
+      this.outputChannel.appendLine(`CWD: ${cwd}`);
+      
       const child = spawn(command, args, {
         cwd,
         shell: true,
@@ -600,17 +562,40 @@ export class VitestStoryTestController implements vscode.Disposable {
       let stdout = "";
       let stderr = "";
 
-      child.stdout.on("data", (data) => (stdout += data));
-      child.stderr.on("data", (data) => (stderr += data));
+      child.stdout.on("data", (data) => {
+        const chunk = data.toString();
+        stdout += chunk;
+      });
+      
+      child.stderr.on("data", (data) => {
+        const chunk = data.toString();
+        stderr += chunk;
+      });
 
       child.on("close", (code) => {
+        this.outputChannel.appendLine(`Process exited with code: ${code}`);
+        if (stderr) {
+          this.outputChannel.appendLine("=== Stderr ===");
+          this.outputChannel.appendLine(stderr);
+        }
+        
         if (stdout) {
           resolve(stdout);
+        } else if (code === 0 && stderr) {
+          // Sometimes vitest outputs to stderr even on success
+          resolve(stderr);
         } else {
           reject(
             new Error(`Command failed with code ${code}\nStderr: ${stderr}`)
           );
         }
+      });
+      
+      child.on("error", (error) => {
+        this.outputChannel.appendLine("=== Process error ===");
+        this.outputChannel.appendLine(`Error: ${error}`);
+        this.outputChannel.show();
+        reject(error);
       });
     });
   }

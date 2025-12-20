@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:plugin": "pnpm --filter plugin build",
-    "build:vsix": "pnpm --filter vsix compile",
-    "pub:vsix": "pnpm --filter vsix compile && pnpm --filter vsix package --no-dependencies",
+    "build:plugin": "pnpm --filter vitest-story build",
+    "build:vsix": "pnpm --filter vitest-story-extension compile",
+    "watch:vsix": "pnpm --filter vitest-story-extension watch",
+    "pub:vsix": "pnpm --filter vitest-story-extension compile && pnpm --filter vitest-story-extension package --no-dependencies",
     "lint": "eslint . --ext .ts,.js",
     "format": "prettier --write ."
   },
