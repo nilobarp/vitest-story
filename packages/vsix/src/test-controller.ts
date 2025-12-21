@@ -580,6 +580,15 @@ export class VitestStoryTestController implements vscode.Disposable {
       "--no-color",
     ];
 
+    // Extract scenario names to filter tests
+    const scenarioNames = this.extractScenarioNames(testsToRun, fileItem);
+    if (scenarioNames.length > 0) {
+      // Use -t flag to filter tests by name pattern
+      const pattern = scenarioNames.map(name => this.escapeRegex(name)).join('|');
+      // Quote the pattern to handle spaces and shell special characters
+      args.push('-t', `"${pattern}"`);
+    }
+
     try {
       const output = await this.execCommand(packageManager, args, cwd);      this.outputChannel.appendLine("=== Raw vitest output ===");
       this.outputChannel.appendLine(output);
@@ -655,20 +664,31 @@ export class VitestStoryTestController implements vscode.Disposable {
     try {
       // Start a debug session for vitest
       const packageManager = await this.detectPackageManager(cwd);
+      const runtimeArgs = [
+        "exec",
+        "--",
+        "vitest",
+        "run",
+        uri.fsPath,
+        "--reporter=json",
+        "--no-color",
+      ];
+
+      // Extract scenario names to filter tests
+      const scenarioNames = this.extractScenarioNames(testsToRun, fileItem);
+      if (scenarioNames.length > 0) {
+        // Use -t flag to filter tests by name pattern
+        const pattern = scenarioNames.map(name => this.escapeRegex(name)).join('|');
+        // Quote the pattern to handle spaces and shell special characters
+        runtimeArgs.push('-t', `"${pattern}"`);
+      }
+
       const debugConfig: vscode.DebugConfiguration = {
         type: "node",
         request: "launch",
         name: "Debug Vitest Story",
         runtimeExecutable: packageManager,
-        runtimeArgs: [
-          "exec",
-          "--",
-          "vitest",
-          "run",
-          uri.fsPath,
-          "--reporter=json",
-          "--no-color",
-        ],
+        runtimeArgs: runtimeArgs,
         cwd: cwd,
         console: "integratedTerminal",
         internalConsoleOptions: "neverOpen",
@@ -719,6 +739,54 @@ export class VitestStoryTestController implements vscode.Disposable {
   ) {
     // Delegate to exported helper so we can unit test the logic
     processTestResultsForTest(result, fileItem, run);
+  }
+
+  /**
+   * Extract scenario names from test items, filtering out file-level and step-level items
+   */
+  private extractScenarioNames(testsToRun: vscode.TestItem[], fileItem: vscode.TestItem): string[] {
+    const scenarioNames: string[] = [];
+    
+    for (const test of testsToRun) {
+      // Skip if this is the file item itself
+      if (test.id === fileItem.id) {
+        // If running the whole file, return empty array to run all tests
+        return [];
+      }
+      
+      // Check if this test item has children (it's a scenario or feature)
+      // Scenarios have step children, features have scenario children
+      if (test.children.size > 0) {
+        // Check if this is a feature by seeing if its children have children (scenarios)
+        let hasScenarioChildren = false;
+        test.children.forEach((child) => {
+          if (child.children.size > 0) {
+            hasScenarioChildren = true;
+          }
+        });
+        
+        if (hasScenarioChildren) {
+          // This is a feature - don't filter, run all tests in the file
+          return [];
+        } else {
+          // This is a scenario with step children
+          scenarioNames.push(test.label);
+        }
+      } else {
+        // This might be a step item - find its parent scenario
+        // We should skip individual steps as vitest doesn't support step-level filtering
+        // The parent scenario should already be in the list or will be added
+      }
+    }
+    
+    return scenarioNames;
+  }
+
+  /**
+   * Escape special regex characters in test names for vitest -t pattern
+   */
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   private execCommand(
