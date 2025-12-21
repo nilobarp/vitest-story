@@ -42,9 +42,6 @@ importers:
       '@testcontainers/mongodb':
         specifier: ^11.10.0
         version: 11.10.0
-      '@types/better-sqlite3':
-        specifier: ^7.6.13
-        version: 7.6.13
       mongodb:
         specifier: ^7.0.0
         version: 7.0.0
@@ -828,9 +825,6 @@ packages:
 
   '@textlint/types@15.5.0':
     resolution: {integrity: sha512-EjAPbuA+3NyQ9WyFP7iUlddi35F3mGrf4tb4cZM0nWywbtEJ3+XAYqL+5RsF0qFeSguxGir09NdZOWrG9wVOUQ==}
-
-  '@types/better-sqlite3@7.6.13':
-    resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -3584,10 +3578,6 @@ snapshots:
   '@textlint/types@15.5.0':
     dependencies:
       '@textlint/ast-node-types': 15.5.0
-
-  '@types/better-sqlite3@7.6.13':
-    dependencies:
-      '@types/node': 25.0.1
 
   '@types/chai@5.2.3':
     dependencies:

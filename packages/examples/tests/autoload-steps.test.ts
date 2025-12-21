@@ -8,6 +8,13 @@ import { story } from "vitest-story";
 story`
   Scenario: AI text extraction
     Given I start extracting text
-    And AI extracts text from the document
+    And AI extracts text from the document:
+    """yaml
+    document:
+      - page: 1
+        content: "This is the first page."
+      - page: 2
+        content: "This is the second page."
+    """
     Then the extracted text should be stored
 `();

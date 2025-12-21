@@ -10,12 +10,12 @@ Given("I start extracting text", (ctx) => {
   ctx.system.extractionStarted = true;
 });
 
-When("AI extracts text from the document", (ctx) => {
+When("AI extracts text from the document:", (ctx, params) => {
   if (!ctx.system.extractionStarted) {
     throw new Error("Extraction has not been started");
   }
   // Simulate AI text extraction
-  const extractedText = "This is the extracted text from the document.";
+  const extractedText = params.yaml;
   ctx.system.extractedData.set("documentText", extractedText);
 });
 

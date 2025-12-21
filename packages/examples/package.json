@@ -10,7 +10,6 @@
   },
   "devDependencies": {
     "@testcontainers/mongodb": "^11.10.0",
-    "@types/better-sqlite3": "^7.6.13",
     "mongodb": "^7.0.0",
     "mongoose": "^9.0.1",
     "testcontainers": "^11.10.0",
