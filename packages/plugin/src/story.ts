@@ -14,6 +14,11 @@ import { getHooks } from "./hook-registry.js";
 import { getVitestStoryConfig } from "./config.js";
 
 /**
+ * Special tag that causes a scenario to be skipped
+ */
+const SKIP_TAG = "skip";
+
+/**
  * Test runner function type with skip support
  */
 export type TestRunner = ((
@@ -158,7 +163,7 @@ function shouldSkipScenario(scenarioTags: string[], featureTags: string[]): bool
   const allTags = [...featureTags, ...scenarioTags];
   
   // If scenario or feature has @skip tag, skip it
-  if (allTags.includes('skip')) {
+  if (allTags.includes(SKIP_TAG)) {
     return true;
   }
   

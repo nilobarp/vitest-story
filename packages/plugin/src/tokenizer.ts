@@ -9,9 +9,8 @@ const STEP_KEYWORDS = ["Given", "When", "Then", "And", "But"];
  */
 function parseTags(line: string): string[] {
   const tags: string[] = [];
-  const tagRegex = /@(\w+)/g;
-  let match;
-  while ((match = tagRegex.exec(line)) !== null) {
+  const matches = line.matchAll(/@(\w+)/g);
+  for (const match of matches) {
     tags.push(match[1]);
   }
   return tags;
