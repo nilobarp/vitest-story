@@ -2,7 +2,7 @@ import { createSteps } from "vitest-story";
 
 type System = {
   extractionStarted: boolean;
-  extractedData: Map<string, string>;
+  extractedData: Map<string, unknown>;
 };
 
 type Ctx = {
@@ -13,7 +13,7 @@ const { Given, When, Then } = createSteps<Ctx>();
 
 const system: System = {
   extractionStarted: false,
-  extractedData: new Map<string, string>(),
+  extractedData: new Map<string, unknown>(),
 };
 
 Given("I start extracting text", (ctx) => {
@@ -26,7 +26,7 @@ When("AI extracts text from the document:", (ctx, params) => {
     throw new Error("Extraction has not been started");
   }
   // Simulate AI text extraction
-  const extractedText = params?.yaml ?? "";
+  const extractedText = params.yaml ?? "";
   ctx.system.extractedData.set("documentText", extractedText);
 });
 

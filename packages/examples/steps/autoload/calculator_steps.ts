@@ -2,11 +2,24 @@
  * Calculator step definitions for simple arithmetic testing
  */
 
-import { step, Given, When, Then, But, And } from "vitest-story";
+import { createSteps } from "vitest-story";
 import { expect } from "vitest";
 
 // Helper to get or create calculator from context
-const getCalculator = (ctx: any) => {
+type Calculator = {
+  value: number;
+  add(n: number): void;
+  subtract(n: number): void;
+  reset(): void;
+};
+
+type Ctx = {
+  calculator?: Calculator;
+};
+
+const { step, Given, When, Then, But, And } = createSteps<Ctx>();
+
+const getCalculator = (ctx: Ctx) => {
   if (!ctx.calculator) {
     ctx.calculator = {
       value: 0,
@@ -49,7 +62,7 @@ But("the result should not be {int}", (ctx, params) => {
   expect(calculator.value).not.toBe(parseInt(params.int));
 });
 
-step('the result wont be {number1}', async (ctx, { number1 }) => {
+step('the result wont be {num}', async (ctx, params) => {
   const calculator = getCalculator(ctx);
-  expect(calculator.value).not.toBe(parseInt(number1));
+  expect(calculator.value).not.toBe(parseInt(params.num));
 });
