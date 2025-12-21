@@ -45,16 +45,19 @@ async function executeSteps(
     if (!matched) {
       const config = getVitestStoryConfig();
 
+      // Build a suggested step definition snippet for the user to copy/paste
+      const suggestion = generateStepSuggestion(token);
+
       if (config.provideDefaultImplementations) {
-        // Provide a default implementation that throws
+        // Provide a default implementation that throws (but include suggestion)
         console.warn(
           `[Vitest Story] No matching step found for: "${token.keyword} ${token.text}" at line ${token.lineNumber}. ` +
-            `Using default implementation.`
+            `Using default implementation.\nSuggested step:\n${suggestion}`
         );
 
         throw new Error(
           `Step not implemented yet: "${token.keyword} ${token.text}" at line ${token.lineNumber}\n` +
-            `Please implement this step in your step definitions.`
+            `Please implement this step in your step definitions.\n\nSuggested step to add:\n${suggestion}`
         );
       }
 
@@ -64,7 +67,7 @@ async function executeSteps(
 
       throw new Error(
         `No matching step found for: "${token.keyword} ${token.text}" at line ${token.lineNumber}\n` +
-          `Available steps:\n${availableSteps}`
+          `Available steps:\n${availableSteps}\n\nSuggested step to add:\n${suggestion}`
       );
     }
 
@@ -244,6 +247,70 @@ export function createStory(testRunner?: TestRunner) {
 function getAllStepPatterns(): string[] {
   const steps = getAllSteps();
   return steps.map((s) => s.pattern);
+}
+
+/**
+ * Generate a suggested step definition snippet for a missing step token
+ * Uses simple heuristics to turn quoted strings and numbers into placeholders
+ */
+function generateStepSuggestion(token: Token): string {
+  let pattern = token.text;
+  const paramNames: string[] = [];
+  let autoIndex = 1;
+
+  // Replace double-quoted substrings with placeholders
+  pattern = pattern.replace(/"([^"]+)"/g, (full, inner, offset, str) => {
+    // Look back for a contextual word before the quote to name the param
+    const before = str.substring(0, offset).trim();
+    const beforeMatch = before.match(/(\w+)\s*(?:to|for|with|is|should|be)?\s*$/i);
+    let name = beforeMatch ? beforeMatch[1] : inner.split(/\s+/)[0];
+    name = name.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase() || `param${autoIndex++}`;
+    if (paramNames.includes(name)) {
+      name = `${name}${autoIndex++}`;
+    }
+    paramNames.push(name);
+    return `"{${name}}"`;
+  });
+
+  // Replace single-quoted substrings
+  pattern = pattern.replace(/'([^']+)'/g, (full, inner, offset, str) => {
+    const before = str.substring(0, offset).trim();
+    const beforeMatch = before.match(/(\w+)\s*(?:to|for|with|is|should|be)?\s*$/i);
+    let name = beforeMatch ? beforeMatch[1] : inner.split(/\s+/)[0];
+    name = name.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase() || `param${autoIndex++}`;
+    if (paramNames.includes(name)) {
+      name = `${name}${autoIndex++}`;
+    }
+    paramNames.push(name);
+    return `'{${name}}'`;
+  });
+
+  // Replace numeric tokens with a {number} placeholder
+  pattern = pattern.replace(/\b(\d+)\b/g, (full) => {
+    let name = `number${autoIndex++}`;
+    paramNames.push(name);
+    return `{${name}}`;
+  });
+
+  // If the step had a YAML block, append the {yaml} placeholder
+  if (token.yaml) {
+    // Ensure the pattern ends up with a colon too (common syntax)
+    if (!pattern.endsWith(':')) {
+      pattern = `${pattern}:`;
+    }
+    pattern = `${pattern}\n{yaml}`; // tests in repo expect YAML pattern to be on its own line
+    paramNames.push('yaml');
+  }
+
+  // Build parameter argument for the handler example
+  const paramsDestructure = paramNames.length ? `{ ${paramNames.join(', ')} }` : 'params';
+
+  // Escape single quotes in pattern for safe single-quoted JS string
+  const safePattern = pattern.replace(/'/g, "\\'");
+
+  const snippet = `step('${safePattern}', async (ctx, ${paramsDestructure}) => {\n  // TODO: implement this step\n});`;
+
+  return snippet;
 }
 
 /**

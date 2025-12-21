@@ -1,5 +1,6 @@
-import { expect, beforeEach } from "vitest";
+import { expect, beforeEach, test } from "vitest";
 import { story, clearSteps } from "../src";
+import { executeStory } from "../src/story";
 
 beforeEach(() => {
   clearSteps();
@@ -138,4 +139,10 @@ story`
   step("I have state {expected}", (ctx, params) => {
     expect(ctx.combined).toBe(params.expected);
   });
+});
+
+test("missing step includes a suggested step snippet", async () => {
+  await expect(
+    executeStory(`Scenario: Missing suggestion\n  Given I set name to "John"`)
+  ).rejects.toThrow(/suggested step/i);
 });
