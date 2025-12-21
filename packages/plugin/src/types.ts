@@ -37,6 +37,12 @@ export interface ParsedScenario {
   tokens: Token[];
 }
 
+export interface ParsedFeature {
+  featureTitle: string | null;
+  backgroundTokens: Token[];
+  scenarios: ParsedScenario[];
+}
+
 export type StepRegistryCallback = (api: {
   step: (pattern: string, handler: StepFunction) => void;
   ctx: Context;
