@@ -19,6 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
   const selector: vscode.DocumentSelector = [
     { language: "typescript", scheme: "file" },
     { language: "javascript", scheme: "file" },
+    { language: "story", scheme: "file" },
   ];
 
   context.subscriptions.push(

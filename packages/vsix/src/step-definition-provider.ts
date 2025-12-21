@@ -32,22 +32,26 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
     document: vscode.TextDocument,
     position: vscode.Position
   ): Promise<vscode.Definition | undefined> {
-    // Check if we're inside a story template literal
     const text = document.getText();
     const offset = document.offsetAt(position);
 
-    // Find if we're inside a story`` block
-    // Create a new RegExp each time to avoid lastIndex state issues
-    const storyRegex = /story\s*`([\s\S]*?)`/g;
-    let match;
     let insideStory = false;
 
-    while ((match = storyRegex.exec(text)) !== null) {
-      const storyStart = match.index;
-      const storyEnd = match.index + match[0].length;
-      if (offset >= storyStart && offset <= storyEnd) {
-        insideStory = true;
-        break;
+    // Check if this is a .story file
+    if (document.languageId === 'story') {
+      insideStory = true;
+    } else {
+      // Check if we're inside a story template literal in .ts/.js files
+      const storyRegex = /story\s*`([\s\S]*?)`/g;
+      let match;
+
+      while ((match = storyRegex.exec(text)) !== null) {
+        const storyStart = match.index;
+        const storyEnd = match.index + match[0].length;
+        if (offset >= storyStart && offset <= storyEnd) {
+          insideStory = true;
+          break;
+        }
       }
     }
 

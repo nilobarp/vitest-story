@@ -5,7 +5,7 @@ import { spawn } from "child_process";
 
 export class VitestStoryTestController implements vscode.Disposable {
   private controller: vscode.TestController;
-  private watcher: vscode.FileSystemWatcher;
+  private watchers: vscode.FileSystemWatcher[] = [];
   private packageManagerCache: Map<string, string> = new Map();
   private outputChannel: vscode.OutputChannel;
 
@@ -32,12 +32,23 @@ export class VitestStoryTestController implements vscode.Disposable {
       (request, token) => this.runTests(request, token, true)
     );
 
-    this.watcher = vscode.workspace.createFileSystemWatcher(
+    // Watch for .test.ts and .spec.ts files
+    const testWatcher = vscode.workspace.createFileSystemWatcher(
       "**/*.{test,spec}.{ts,js}"
     );
-    this.watcher.onDidChange((uri) => this.updateTestsInFile(uri));
-    this.watcher.onDidCreate((uri) => this.updateTestsInFile(uri));
-    this.watcher.onDidDelete((uri) => this.removeTestsInFile(uri));
+    testWatcher.onDidChange((uri) => this.updateTestsInFile(uri));
+    testWatcher.onDidCreate((uri) => this.updateTestsInFile(uri));
+    testWatcher.onDidDelete((uri) => this.removeTestsInFile(uri));
+    this.watchers.push(testWatcher);
+
+    // Watch for .story files
+    const storyWatcher = vscode.workspace.createFileSystemWatcher(
+      "**/*.story"
+    );
+    storyWatcher.onDidChange((uri) => this.updateTestsInFile(uri));
+    storyWatcher.onDidCreate((uri) => this.updateTestsInFile(uri));
+    storyWatcher.onDidDelete((uri) => this.removeTestsInFile(uri));
+    this.watchers.push(storyWatcher);
 
     // Initial scan
     this.scanWorkspace();
@@ -45,7 +56,7 @@ export class VitestStoryTestController implements vscode.Disposable {
 
   dispose() {
     this.controller.dispose();
-    this.watcher.dispose();
+    this.watchers.forEach((watcher) => watcher.dispose());
   }
 
   private async detectPackageManager(cwd: string): Promise<string> {
@@ -150,11 +161,21 @@ export class VitestStoryTestController implements vscode.Disposable {
   }
 
   private async scanWorkspace() {
-    const files = await vscode.workspace.findFiles(
+    // Find .test.ts and .spec.ts files
+    const testFiles = await vscode.workspace.findFiles(
       "**/*.{test,spec}.{ts,js}",
       "**/node_modules/**"
     );
-    for (const file of files) {
+    
+    // Find .story files
+    const storyFiles = await vscode.workspace.findFiles(
+      "**/*.story",
+      "**/node_modules/**"
+    );
+    
+    // Combine and process all files
+    const allFiles = [...testFiles, ...storyFiles];
+    for (const file of allFiles) {
       await this.updateTestsInFile(file);
     }
   }
@@ -187,9 +208,124 @@ export class VitestStoryTestController implements vscode.Disposable {
       uri
     );
 
+    const children: vscode.TestItem[] = [];
+
+    // Check if this is a .story file
+    if (uri.fsPath.endsWith('.story')) {
+      // Parse .story file format (plain Gherkin)
+      this.parseStoryFile(text, uri, fileItem, children);
+    } else {
+      // Parse template literal format in .test.ts files
+      this.parseTemplateLiteralFormat(text, uri, fileItem, children);
+    }
+
+    if (children.length > 0) {
+      fileItem.children.replace(children);
+      this.controller.items.add(fileItem);
+    } else {
+      this.controller.items.delete(fileId);
+    }
+  }
+
+  private parseStoryFile(
+    text: string,
+    uri: vscode.Uri,
+    fileItem: vscode.TestItem,
+    children: vscode.TestItem[]
+  ) {
+    const fileId = uri.toString();
+    const lines = text.split('\n');
+    
+    let currentScenario: {
+      title: string;
+      startLine: number;
+      steps: Array<{ keyword: string; text: string; line: number }>;
+    } | null = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Match Scenario or Scenario Outline
+      const scenarioMatch = line.match(/^Scenario(?:\s+Outline)?:\s*(.+)$/);
+      if (scenarioMatch) {
+        // Save previous scenario if exists
+        if (currentScenario) {
+          this.addScenarioItem(uri, fileId, currentScenario, children);
+        }
+        
+        // Start new scenario
+        currentScenario = {
+          title: scenarioMatch[1].trim(),
+          startLine: i,
+          steps: []
+        };
+        continue;
+      }
+
+      // Match step lines (Given, When, Then, And, But)
+      const stepMatch = line.match(/^(Given|When|Then|And|But)\s+(.+)$/);
+      if (stepMatch && currentScenario) {
+        currentScenario.steps.push({
+          keyword: stepMatch[1],
+          text: stepMatch[2].trim(),
+          line: i
+        });
+      }
+
+      // Ignore Feature, Background, comments, and empty lines
+    }
+
+    // Add the last scenario if exists
+    if (currentScenario) {
+      this.addScenarioItem(uri, fileId, currentScenario, children);
+    }
+  }
+
+  private addScenarioItem(
+    uri: vscode.Uri,
+    fileId: string,
+    scenario: {
+      title: string;
+      startLine: number;
+      steps: Array<{ keyword: string; text: string; line: number }>;
+    },
+    children: vscode.TestItem[]
+  ) {
+    const testId = `${fileId}::${scenario.title}`;
+    const position = new vscode.Position(scenario.startLine, 0);
+    const scenarioItem = this.controller.createTestItem(testId, scenario.title, uri);
+    scenarioItem.range = new vscode.Range(position, position);
+
+    // Add steps as children
+    const stepChildren: vscode.TestItem[] = [];
+    for (const step of scenario.steps) {
+      const stepId = `${testId}::${step.keyword} ${step.text}`;
+      const stepPosition = new vscode.Position(step.line, 0);
+      const stepItem = this.controller.createTestItem(
+        stepId,
+        `${step.keyword} ${step.text}`,
+        uri
+      );
+      stepItem.range = new vscode.Range(stepPosition, stepPosition);
+      stepChildren.push(stepItem);
+    }
+
+    if (stepChildren.length > 0) {
+      scenarioItem.children.replace(stepChildren);
+    }
+
+    children.push(scenarioItem);
+  }
+
+  private parseTemplateLiteralFormat(
+    text: string,
+    uri: vscode.Uri,
+    fileItem: vscode.TestItem,
+    children: vscode.TestItem[]
+  ) {
+    const fileId = uri.toString();
     const storyRegex = /story\s*`([\s\S]*?)`/g;
     let match;
-    const children: vscode.TestItem[] = [];
 
     while ((match = storyRegex.exec(text)) !== null) {
       const content = match[1];
@@ -240,13 +376,6 @@ export class VitestStoryTestController implements vscode.Disposable {
 
         children.push(scenarioItem);
       }
-    }
-
-    if (children.length > 0) {
-      fileItem.children.replace(children);
-      this.controller.items.add(fileItem);
-    } else {
-      this.controller.items.delete(fileId);
     }
   }
 

@@ -1,0 +1,134 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Vitest Story",
+  "scopeName": "source.story",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#feature"
+    },
+    {
+      "include": "#scenario"
+    },
+    {
+      "include": "#background"
+    },
+    {
+      "include": "#steps"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#yaml-block"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.story",
+          "match": "^\\s*#.*$"
+        }
+      ]
+    },
+    "feature": {
+      "patterns": [
+        {
+          "name": "keyword.control.feature.story",
+          "match": "^\\s*(Feature):",
+          "captures": {
+            "1": {
+              "name": "keyword.control.feature.story"
+            }
+          }
+        },
+        {
+          "name": "entity.name.function.feature.story",
+          "match": "(?<=^\\s*Feature:).*$"
+        }
+      ]
+    },
+    "scenario": {
+      "patterns": [
+        {
+          "name": "keyword.control.scenario.story",
+          "match": "^\\s*(Scenario|Scenario Outline):",
+          "captures": {
+            "1": {
+              "name": "keyword.control.scenario.story"
+            }
+          }
+        },
+        {
+          "name": "entity.name.function.scenario.story",
+          "match": "(?<=^\\s*Scenario:).*$|(?<=^\\s*Scenario Outline:).*$"
+        }
+      ]
+    },
+    "background": {
+      "patterns": [
+        {
+          "name": "keyword.control.background.story",
+          "match": "^\\s*(Background):",
+          "captures": {
+            "1": {
+              "name": "keyword.control.background.story"
+            }
+          }
+        }
+      ]
+    },
+    "steps": {
+      "patterns": [
+        {
+          "name": "keyword.control.step.story",
+          "match": "^\\s*(Given|When|Then|And|But)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.step.story"
+            }
+          }
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.story",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.story",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.story",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.story",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "yaml-block": {
+      "patterns": [
+        {
+          "name": "string.quoted.triple.story",
+          "begin": "\"\"\"\\s*(yaml|json)?",
+          "end": "\"\"\"",
+          "contentName": "meta.embedded.block.yaml"
+        }
+      ]
+    }
+  }
+}
