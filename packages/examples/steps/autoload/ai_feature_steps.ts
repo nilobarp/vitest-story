@@ -1,8 +1,19 @@
-import { step, Given, When, Then } from "vitest-story";
+import { createSteps } from "vitest-story";
 
-const system = {
+type System = {
+  extractionStarted: boolean;
+  extractedData: Map<string, string>;
+};
+
+type Ctx = {
+  system: System;
+};
+
+const { Given, When, Then } = createSteps<Ctx>();
+
+const system: System = {
   extractionStarted: false,
-  extractedData: new Map<string, string>(), // Initialize as a Map
+  extractedData: new Map<string, string>(),
 };
 
 Given("I start extracting text", (ctx) => {
@@ -15,7 +26,7 @@ When("AI extracts text from the document:", (ctx, params) => {
     throw new Error("Extraction has not been started");
   }
   // Simulate AI text extraction
-  const extractedText = params.yaml;
+  const extractedText = params?.yaml ?? "";
   ctx.system.extractedData.set("documentText", extractedText);
 });
 
