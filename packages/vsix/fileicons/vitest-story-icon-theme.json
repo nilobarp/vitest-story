@@ -1,0 +1,10 @@
+{
+  "iconDefinitions": {
+    "story-file": {
+      "iconPath": "../images/story-icon.svg"
+    }
+  },
+  "fileExtensions": {
+    "story": "story-file"
+  }
+}

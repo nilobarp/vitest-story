@@ -2,7 +2,7 @@
   "name": "vitest-story-extension",
   "displayName": "Vitest Story",
   "description": "VS Code extension for Vitest Story testing DSL",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "publisher": "nilobarp",
   "engines": {
     "vscode": "^1.85.0"
@@ -14,14 +14,47 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:typescript",
-    "onLanguage:javascript"
+    "onLanguage:javascript",
+    "onLanguage:story"
   ],
   "main": "./out/extension.js",
   "license": "MIT",
   "repository": {
     "url": "https://github.com/nilobarp/vitest-story"
   },
-  "contributes": {},
+  "contributes": {
+    "languages": [
+      {
+        "id": "story",
+        "aliases": [
+          "Vitest Story",
+          "story"
+        ],
+        "extensions": [
+          ".story"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./images/story-icon.svg",
+          "dark": "./images/story-icon.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "story",
+        "scopeName": "source.story",
+        "path": "./syntaxes/story.tmLanguage.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "vitest-story-icons",
+        "label": "Vitest Story File Icons",
+        "path": "./fileicons/vitest-story-icon-theme.json"
+      }
+    ]
+  },
   "icon": "./images/tornado.png",
   "scripts": {
     "compile": "node esbuild.js",
