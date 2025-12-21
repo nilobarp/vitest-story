@@ -2,7 +2,7 @@
   "name": "vitest-story-extension",
   "displayName": "Vitest Story",
   "description": "VS Code extension for Vitest Story testing DSL",
-  "version": "0.0.29",
+  "version": "0.0.31",
   "publisher": "nilobarp",
   "engines": {
     "vscode": "^1.85.0"

@@ -5,7 +5,7 @@ import { spawn } from "child_process";
 
 export class VitestStoryTestController implements vscode.Disposable {
   private controller: vscode.TestController;
-  private watcher: vscode.FileSystemWatcher;
+  private watchers: vscode.FileSystemWatcher[] = [];
   private packageManagerCache: Map<string, string> = new Map();
   private outputChannel: vscode.OutputChannel;
 
@@ -32,12 +32,23 @@ export class VitestStoryTestController implements vscode.Disposable {
       (request, token) => this.runTests(request, token, true)
     );
 
-    this.watcher = vscode.workspace.createFileSystemWatcher(
-      "**/*.{test,spec}.{ts,js},**/*.story"
+    // Watch for .test.ts and .spec.ts files
+    const testWatcher = vscode.workspace.createFileSystemWatcher(
+      "**/*.{test,spec}.{ts,js}"
     );
-    this.watcher.onDidChange((uri) => this.updateTestsInFile(uri));
-    this.watcher.onDidCreate((uri) => this.updateTestsInFile(uri));
-    this.watcher.onDidDelete((uri) => this.removeTestsInFile(uri));
+    testWatcher.onDidChange((uri) => this.updateTestsInFile(uri));
+    testWatcher.onDidCreate((uri) => this.updateTestsInFile(uri));
+    testWatcher.onDidDelete((uri) => this.removeTestsInFile(uri));
+    this.watchers.push(testWatcher);
+
+    // Watch for .story files
+    const storyWatcher = vscode.workspace.createFileSystemWatcher(
+      "**/*.story"
+    );
+    storyWatcher.onDidChange((uri) => this.updateTestsInFile(uri));
+    storyWatcher.onDidCreate((uri) => this.updateTestsInFile(uri));
+    storyWatcher.onDidDelete((uri) => this.removeTestsInFile(uri));
+    this.watchers.push(storyWatcher);
 
     // Initial scan
     this.scanWorkspace();
@@ -45,7 +56,7 @@ export class VitestStoryTestController implements vscode.Disposable {
 
   dispose() {
     this.controller.dispose();
-    this.watcher.dispose();
+    this.watchers.forEach((watcher) => watcher.dispose());
   }
 
   private async detectPackageManager(cwd: string): Promise<string> {
@@ -150,11 +161,21 @@ export class VitestStoryTestController implements vscode.Disposable {
   }
 
   private async scanWorkspace() {
-    const files = await vscode.workspace.findFiles(
-      "**/*.{test,spec}.{ts,js},**/*.story",
+    // Find .test.ts and .spec.ts files
+    const testFiles = await vscode.workspace.findFiles(
+      "**/*.{test,spec}.{ts,js}",
       "**/node_modules/**"
     );
-    for (const file of files) {
+    
+    // Find .story files
+    const storyFiles = await vscode.workspace.findFiles(
+      "**/*.story",
+      "**/node_modules/**"
+    );
+    
+    // Combine and process all files
+    const allFiles = [...testFiles, ...storyFiles];
+    for (const file of allFiles) {
       await this.updateTestsInFile(file);
     }
   }
