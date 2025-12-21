@@ -116,3 +116,17 @@ export const When = registerStep;
  * @param handler - Function to execute when step matches
  */
 export const Then = registerStep;
+
+/**
+ * Register an And step (semantic alias for step)
+ * @param pattern - Step pattern with placeholders like {variable}
+ * @param handler - Function to execute when step matches
+ */
+export const And = registerStep;
+
+/**
+ * Register a But step (semantic alias for step)
+ * @param pattern - Step pattern with placeholders like {variable}
+ * @param handler - Function to execute when step matches
+ */
+export const But = registerStep;

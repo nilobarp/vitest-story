@@ -14,7 +14,7 @@ export const story = createStory(test);
 /**
  * Step registration and utility functions
  */
-export { step, clearSteps, Given, When, Then } from "./step-registry.js";
+export { step, clearSteps, Given, When, Then, And, But } from "./step-registry.js";
 
 /**
  * Hook registration and utility functions
