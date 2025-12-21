@@ -35,10 +35,12 @@ export interface Token {
 export interface ParsedScenario {
   title: string;
   tokens: Token[];
+  tags: string[];
 }
 
 export interface ParsedFeature {
   featureTitle: string | null;
+  featureTags: string[];
   backgroundTokens: Token[];
   scenarios: ParsedScenario[];
 }

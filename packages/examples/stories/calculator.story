@@ -1,3 +1,6 @@
+@fast
+@calculator
+
 Feature: Calculator Operations
 
 Background:

@@ -11,6 +11,13 @@ export interface VitestStoryConfig {
    * @default true
    */
   warnOnDuplicates?: boolean;
+
+  /**
+   * Tags to filter scenarios by
+   * Only scenarios with at least one of these tags will be executed
+   * Can be set via VITEST_STORY_TAGS environment variable (comma-separated)
+   */
+  tags?: string[];
 }
 
 /**
@@ -19,6 +26,7 @@ export interface VitestStoryConfig {
 let config: Required<VitestStoryConfig> = {
   provideDefaultImplementations: true,
   warnOnDuplicates: true,
+  tags: [],
 };
 
 /**
@@ -36,5 +44,13 @@ export function configureVitestStory(newConfig: VitestStoryConfig): void {
  * Get current configuration
  */
 export function getVitestStoryConfig(): Required<VitestStoryConfig> {
+  // Check environment variable for tags
+  const envTags = process.env.VITEST_STORY_TAGS;
+  if (envTags) {
+    return {
+      ...config,
+      tags: envTags.split(',').map(t => t.trim()).filter(t => t),
+    };
+  }
   return config;
 }
