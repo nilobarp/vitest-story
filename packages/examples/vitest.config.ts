@@ -6,7 +6,10 @@ export default defineConfig({
     vitestStoryPlugin({
       // Paths to directories containing step definition files
       // Default: ['./steps']
-      stepsPaths: ["./steps/autoload"],
+      stepsPaths: ["./steps"],
+      // Paths to directories containing .story files
+      // Default: ['./stories']
+      storyPaths: ["./stories"],
       // Warn about duplicate step definitions (last one wins)
       // Default: true
       warnOnDuplicates: true,
@@ -16,6 +19,7 @@ export default defineConfig({
     }),
   ],
   test: {
-    // Your other Vitest configuration
+    // Include .story files in test patterns
+    include: ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}", "**/*.story"],
   },
 });

@@ -7,6 +7,7 @@ import { Plugin } from "vitest/config";
 import * as fs from "fs";
 import * as path from "path";
 import { configureVitestStory } from "./config.js";
+import { transformStoryFile } from "./story-loader.js";
 
 /**
  * Configuration options for the Story plugin
@@ -17,6 +18,12 @@ export interface VitestStoryPluginOptions {
    * @default ['./steps']
    */
   stepsPaths?: string[];
+
+  /**
+   * Paths to directories containing .story files
+   * @default ['./stories']
+   */
+  storyPaths?: string[];
 
   /**
    * Whether to warn about duplicate step definitions
@@ -73,6 +80,7 @@ export function vitestStoryPlugin(
 ): Plugin {
   const {
     stepsPaths = ["./steps"],
+    storyPaths = ["./stories"],
     warnOnDuplicates = true,
     provideDefaultImplementations = true,
   } = options;
@@ -88,7 +96,48 @@ export function vitestStoryPlugin(
 
     // Transform test files that use Story to inject step imports
     transform(code, id) {
-      // Only transform test files that import from vitest-story
+      // Handle .story files
+      if (id.endsWith(".story")) {
+        // Generate imports for all step files
+        const imports: string[] = [];
+
+        for (const stepsPath of stepsPaths) {
+          const absolutePath = path.resolve(process.cwd(), stepsPath);
+
+          if (!fs.existsSync(absolutePath)) {
+            console.warn(
+              `[Vitest Story] Steps path does not exist: ${stepsPath}`
+            );
+            continue;
+          }
+
+          const stepFiles = findStepFiles(absolutePath);
+
+          for (const file of stepFiles) {
+            // Convert to relative path for import
+            const relativePath = path
+              .relative(path.dirname(id), file)
+              .replace(/\\/g, "/");
+            const importPath = relativePath.startsWith(".")
+              ? relativePath
+              : `./${relativePath}`;
+            imports.push(`import '${importPath}';`);
+          }
+        }
+
+        // Transform the .story file into executable test code
+        const transformedCode = transformStoryFile(code, id);
+        
+        // Prepend step imports to the transformed code
+        const finalCode = imports.join("\n") + "\n" + transformedCode;
+        
+        return {
+          code: finalCode,
+          map: null,
+        };
+      }
+
+      // Handle regular test files that import from vitest-story
       if (!id.endsWith(".test.ts") && !id.endsWith(".spec.ts")) {
         return null;
       }

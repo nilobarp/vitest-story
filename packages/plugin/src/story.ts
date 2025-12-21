@@ -247,6 +247,64 @@ function getAllStepPatterns(): string[] {
 }
 
 /**
+ * Execute a story from feature text (used by .story file loader)
+ * @param featureText - The raw feature text content
+ * @param testRunner - The test runner function (e.g., Vitest's test)
+ */
+export function executeStoryFromFeature(
+  featureText: string,
+  testRunner: TestRunner
+): void {
+  const feature = tokenizeFeature(featureText);
+
+  if (feature.scenarios.length === 0) {
+    throw new Error("No scenarios found in feature");
+  }
+
+  // Create tests for each scenario
+  for (const scenario of feature.scenarios) {
+    if (!scenario.title) {
+      throw new Error("Each Scenario must have a title");
+    }
+
+    testRunner(scenario.title, async () => {
+      // Create context
+      const ctx: Context = {};
+
+      // Execute beforeFeature hooks
+      const beforeFeatureHooks = getHooks("beforeFeature");
+      for (const hook of beforeFeatureHooks) {
+        await hook.handler(ctx);
+      }
+
+      // Execute beforeScenario hooks
+      const beforeScenarioHooks = getHooks("beforeScenario");
+      for (const hook of beforeScenarioHooks) {
+        await hook.handler(ctx);
+      }
+
+      // Execute background steps
+      await executeSteps(feature.backgroundTokens, ctx);
+
+      // Execute scenario steps
+      await executeSteps(scenario.tokens, ctx);
+
+      // Execute afterScenario hooks
+      const afterScenarioHooks = getHooks("afterScenario");
+      for (const hook of afterScenarioHooks) {
+        await hook.handler(ctx);
+      }
+
+      // Execute afterFeature hooks
+      const afterFeatureHooks = getHooks("afterFeature");
+      for (const hook of afterFeatureHooks) {
+        await hook.handler(ctx);
+      }
+    });
+  }
+}
+
+/**
  * Export convenience function for step registration
  */
 export function step(
