@@ -22,7 +22,7 @@
     { "open": "'", "close": "'" }
   ],
   "indentationRules": {
-    "increaseIndentPattern": "^\\s*(Feature|Scenario|Background|Given|When|Then|And|But):",
+    "increaseIndentPattern": "^\\s*(Scenario|Background):",
     "decreaseIndentPattern": "^\\s*(Feature|Scenario|Background):"
   }
 }

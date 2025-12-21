@@ -124,7 +124,7 @@
       "patterns": [
         {
           "name": "string.quoted.triple.story",
-          "begin": "\"\"\"(yaml|json)?",
+          "begin": "\"\"\"\\s*(yaml|json)?",
           "end": "\"\"\"",
           "contentName": "meta.embedded.block.yaml"
         }
