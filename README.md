@@ -157,6 +157,37 @@ beforeScenario((ctx) => {
 });
 ```
 
+### Tags
+
+Organize and filter your tests using tags:
+
+```typescript
+story`
+  @fast
+  @calculator
+  Feature: Calculator Operations
+
+  @smoke
+  Scenario: Addition
+    When I add 5
+    Then the result should be 5
+
+  @skip
+  Scenario: Work in progress
+    Given incomplete feature
+`();
+```
+
+Run tests with specific tags:
+
+```bash
+# Run only @smoke tests
+VITEST_STORY_TAGS=smoke npx vitest
+
+# Run @smoke or @fast tests
+VITEST_STORY_TAGS=smoke,fast npx vitest
+```
+
 ### YAML Data Tables
 
 Include structured data in your scenarios:
