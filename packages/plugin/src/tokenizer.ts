@@ -1,17 +1,21 @@
-import { Token, ParsedScenario } from "./types.js";
+import { Token, ParsedScenario, ParsedFeature } from "./types.js";
 
 const STEP_KEYWORDS = ["Given", "When", "Then", "And", "But"];
 
 /**
- * Parse scenario text into structured tokens
- * @param text - The scenario text from template literal
- * @returns Parsed scenario with title and tokens
+ * Parse feature text into structured format with scenarios and background
+ * @param text - The feature text from template literal
+ * @returns Parsed feature with scenarios and background
  */
-export function tokenize(text: string): ParsedScenario {
+export function tokenizeFeature(text: string): ParsedFeature {
   const lines = text.split("\n");
-  const tokens: Token[] = [];
-  let title = "";
+  let featureTitle: string | null = null;
+  const backgroundTokens: Token[] = [];
+  const scenarios: ParsedScenario[] = [];
+  let currentScenario: ParsedScenario | null = null;
+  let currentTokens: Token[] = [];
   let currentStepToken: Token | null = null;
+  let inBackground = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -22,9 +26,34 @@ export function tokenize(text: string): ParsedScenario {
       continue;
     }
 
+    // Parse feature title
+    if (trimmed.startsWith("Feature:")) {
+      featureTitle = trimmed.substring("Feature:".length).trim();
+      continue;
+    }
+
+    // Parse background section
+    if (trimmed.startsWith("Background:")) {
+      inBackground = true;
+      currentScenario = null;
+      currentTokens = backgroundTokens;
+      continue;
+    }
+
     // Parse scenario title
     if (trimmed.startsWith("Scenario:")) {
-      title = trimmed.substring("Scenario:".length).trim();
+      // If we were in a scenario, save it
+      if (currentScenario) {
+        scenarios.push(currentScenario);
+      }
+
+      const scenarioTitle = trimmed.substring("Scenario:".length).trim();
+      currentScenario = {
+        title: scenarioTitle,
+        tokens: [],
+      };
+      currentTokens = currentScenario.tokens;
+      inBackground = false;
       continue;
     }
 
@@ -74,7 +103,7 @@ export function tokenize(text: string): ParsedScenario {
         lineNumber: i + 1,
       };
 
-      tokens.push(currentStepToken);
+      currentTokens.push(currentStepToken);
 
       // If there's a colon, check for indented YAML block on next lines
       if (hasYamlIndicator) {
@@ -174,5 +203,29 @@ export function tokenize(text: string): ParsedScenario {
     }
   }
 
-  return { title, tokens };
+  // Save the last scenario if there is one
+  if (currentScenario) {
+    scenarios.push(currentScenario);
+  }
+
+  return { featureTitle, backgroundTokens, scenarios };
+}
+
+/**
+ * Parse scenario text into structured tokens (backward compatibility)
+ * @param text - The scenario text from template literal
+ * @returns Parsed scenario with title and tokens
+ */
+export function tokenize(text: string): ParsedScenario {
+  // Use tokenizeFeature to parse the text
+  const feature = tokenizeFeature(text);
+  
+  // If there are multiple scenarios, return the first one
+  // This maintains backward compatibility with single-scenario usage
+  if (feature.scenarios.length > 0) {
+    return feature.scenarios[0];
+  }
+  
+  // If no scenarios found, return empty scenario
+  return { title: "", tokens: [] };
 }

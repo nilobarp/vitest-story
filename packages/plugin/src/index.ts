@@ -38,3 +38,9 @@ export type { VitestStoryConfig } from "./config.js";
  */
 export { vitestStoryPlugin } from "./plugin.js";
 export type { VitestStoryPluginOptions } from "./plugin.js";
+
+/**
+ * Story file loader (for .story files)
+ */
+export { executeStoryFromFeature } from "./story.js";
+export { transformStoryFile } from "./story-loader.js";

@@ -2,14 +2,14 @@
  * Core story template literal implementation
  */
 
-import { tokenize } from "./tokenizer.js";
+import { tokenize, tokenizeFeature } from "./tokenizer.js";
 import {
   findMatchingStep,
   registerStep,
   getAllSteps,
 } from "./step-registry.js";
 import { parseYaml } from "./yaml-parser.js";
-import { Context, StepRegistryCallback } from "./types.js";
+import { Context, StepRegistryCallback, Token } from "./types.js";
 import { getHooks } from "./hook-registry.js";
 import { getVitestStoryConfig } from "./config.js";
 
@@ -22,44 +22,13 @@ export type TestRunner = (
 ) => void;
 
 /**
- * Core story execution logic (test-runner agnostic)
+ * Execute a list of step tokens
  */
-export async function executeStory(
-  scenarioText: string,
-  callback?: StepRegistryCallback
+async function executeSteps(
+  tokens: Token[],
+  ctx: Context
 ): Promise<void> {
-  // Parse the scenario
-  const parsed = tokenize(scenarioText);
-
-  if (!parsed.title) {
-    throw new Error('Scenario must have a title starting with "Scenario:"');
-  }
-
-  // Create context
-  const ctx: Context = {};
-
-  // Execute beforeFeature hooks
-  const beforeFeatureHooks = getHooks("beforeFeature");
-  for (const hook of beforeFeatureHooks) {
-    await hook.handler(ctx);
-  }
-
-  // Execute beforeScenario hooks
-  const beforeScenarioHooks = getHooks("beforeScenario");
-  for (const hook of beforeScenarioHooks) {
-    await hook.handler(ctx);
-  }
-
-  // Register steps via callback if provided
-  if (callback) {
-    callback({
-      step: registerStep,
-      ctx,
-    });
-  }
-
-  // Execute each step token
-  for (const token of parsed.tokens) {
+  for (const token of tokens) {
     if (token.type !== "step") {
       continue;
     }
@@ -101,7 +70,7 @@ export async function executeStory(
 
     // Parse YAML if present
     const params = { ...matched.params };
-    if (token.yaml && params.yaml) {
+    if (token.yaml) {
       try {
         params.yaml = parseYaml(token.yaml);
       } catch (error) {
@@ -121,6 +90,47 @@ export async function executeStory(
       );
     }
   }
+}
+
+/**
+ * Core story execution logic (test-runner agnostic)
+ */
+export async function executeStory(
+  scenarioText: string,
+  callback?: StepRegistryCallback
+): Promise<void> {
+  // Parse the scenario
+  const parsed = tokenize(scenarioText);
+
+  if (!parsed.title) {
+    throw new Error('Scenario must have a title starting with "Scenario:"');
+  }
+
+  // Create context
+  const ctx: Context = {};
+
+  // Execute beforeFeature hooks
+  const beforeFeatureHooks = getHooks("beforeFeature");
+  for (const hook of beforeFeatureHooks) {
+    await hook.handler(ctx);
+  }
+
+  // Execute beforeScenario hooks
+  const beforeScenarioHooks = getHooks("beforeScenario");
+  for (const hook of beforeScenarioHooks) {
+    await hook.handler(ctx);
+  }
+
+  // Register steps via callback if provided
+  if (callback) {
+    callback({
+      step: registerStep,
+      ctx,
+    });
+  }
+
+  // Execute each step token
+  await executeSteps(parsed.tokens, ctx);
 
   // Execute afterScenario hooks
   const afterScenarioHooks = getHooks("afterScenario");
@@ -151,22 +161,79 @@ export function createStory(testRunner?: TestRunner) {
 
     // Return a function that accepts the step registration callback (optional)
     return (callback?: StepRegistryCallback) => {
-      const parsed = tokenize(scenarioText);
-
-      if (!parsed.title) {
-        throw new Error('Scenario must have a title starting with "Scenario:"');
-      }
-
+      // Try to parse as a feature (with multiple scenarios and background)
+      const feature = tokenizeFeature(scenarioText);
+      
       if (!testRunner) {
         throw new Error(
           "No test runner provided. Provide a custom test runner using createStory(testRunner)"
         );
       }
 
-      // Create test using the provided test runner
-      testRunner(parsed.title, async () => {
-        await executeStory(scenarioText, callback);
-      });
+      // If there are multiple scenarios, create a test for each
+      if (feature.scenarios.length > 1) {
+        // Create tests for each scenario
+        for (const scenario of feature.scenarios) {
+          if (!scenario.title) {
+            throw new Error('Each Scenario must have a title');
+          }
+
+          testRunner(scenario.title, async () => {
+            // Create context
+            const ctx: Context = {};
+
+            // Execute beforeFeature hooks
+            const beforeFeatureHooks = getHooks("beforeFeature");
+            for (const hook of beforeFeatureHooks) {
+              await hook.handler(ctx);
+            }
+
+            // Execute beforeScenario hooks
+            const beforeScenarioHooks = getHooks("beforeScenario");
+            for (const hook of beforeScenarioHooks) {
+              await hook.handler(ctx);
+            }
+
+            // Register steps via callback if provided
+            if (callback) {
+              callback({
+                step: registerStep,
+                ctx,
+              });
+            }
+
+            // Execute background steps
+            await executeSteps(feature.backgroundTokens, ctx);
+
+            // Execute scenario steps
+            await executeSteps(scenario.tokens, ctx);
+
+            // Execute afterScenario hooks
+            const afterScenarioHooks = getHooks("afterScenario");
+            for (const hook of afterScenarioHooks) {
+              await hook.handler(ctx);
+            }
+
+            // Execute afterFeature hooks
+            const afterFeatureHooks = getHooks("afterFeature");
+            for (const hook of afterFeatureHooks) {
+              await hook.handler(ctx);
+            }
+          });
+        }
+      } else {
+        // Single scenario - use backward compatible logic
+        const parsed = tokenize(scenarioText);
+
+        if (!parsed.title) {
+          throw new Error('Scenario must have a title starting with "Scenario:"');
+        }
+
+        // Create test using the provided test runner
+        testRunner(parsed.title, async () => {
+          await executeStory(scenarioText, callback);
+        });
+      }
     };
   };
 }
@@ -177,6 +244,64 @@ export function createStory(testRunner?: TestRunner) {
 function getAllStepPatterns(): string[] {
   const steps = getAllSteps();
   return steps.map((s) => s.pattern);
+}
+
+/**
+ * Execute a story from feature text (used by .story file loader)
+ * @param featureText - The raw feature text content
+ * @param testRunner - The test runner function (e.g., Vitest's test)
+ */
+export function executeStoryFromFeature(
+  featureText: string,
+  testRunner: TestRunner
+): void {
+  const feature = tokenizeFeature(featureText);
+
+  if (feature.scenarios.length === 0) {
+    throw new Error("No scenarios found in feature");
+  }
+
+  // Create tests for each scenario
+  for (const scenario of feature.scenarios) {
+    if (!scenario.title) {
+      throw new Error("Each Scenario must have a title");
+    }
+
+    testRunner(scenario.title, async () => {
+      // Create context
+      const ctx: Context = {};
+
+      // Execute beforeFeature hooks
+      const beforeFeatureHooks = getHooks("beforeFeature");
+      for (const hook of beforeFeatureHooks) {
+        await hook.handler(ctx);
+      }
+
+      // Execute beforeScenario hooks
+      const beforeScenarioHooks = getHooks("beforeScenario");
+      for (const hook of beforeScenarioHooks) {
+        await hook.handler(ctx);
+      }
+
+      // Execute background steps
+      await executeSteps(feature.backgroundTokens, ctx);
+
+      // Execute scenario steps
+      await executeSteps(scenario.tokens, ctx);
+
+      // Execute afterScenario hooks
+      const afterScenarioHooks = getHooks("afterScenario");
+      for (const hook of afterScenarioHooks) {
+        await hook.handler(ctx);
+      }
+
+      // Execute afterFeature hooks
+      const afterFeatureHooks = getHooks("afterFeature");
+      for (const hook of afterFeatureHooks) {
+        await hook.handler(ctx);
+      }
+    });
+  }
 }
 
 /**
