@@ -225,6 +225,59 @@ configureVitestStory({
 });
 ```
 
+You can also use Vitest projects to configure different tag combinations in your `vitest.config.ts`:
+
+```typescript
+import { defineConfig } from "vitest/config";
+import { vitestStoryPlugin } from "vitest-story";
+
+export default defineConfig({
+  plugins: [
+    vitestStoryPlugin({
+      stepsPaths: ["./steps"],
+      storyPaths: ["./stories"],
+    }),
+  ],
+  test: {
+    include: ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}", "**/*.story"],
+    // Define multiple projects with different tag filters
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "smoke-tests",
+          env: {
+            VITEST_STORY_TAGS: "smoke",
+          },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "fast-tests",
+          env: {
+            VITEST_STORY_TAGS: "smoke,fast",
+          },
+        },
+      },
+    ],
+  },
+});
+```
+
+Run specific project:
+
+```bash
+# Run smoke tests only
+npx vitest --project=smoke-tests
+
+# Run fast tests
+npx vitest --project=fast-tests
+
+# Run all projects
+npx vitest
+```
+
 ### Tag Inheritance
 
 Scenarios inherit tags from their feature. If a feature is tagged with `@fast`, all scenarios in that feature are considered to have the `@fast` tag.

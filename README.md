@@ -188,6 +188,59 @@ VITEST_STORY_TAGS=smoke npx vitest
 VITEST_STORY_TAGS=smoke,fast npx vitest
 ```
 
+You can also configure tag filtering using Vitest projects in your `vitest.config.ts`:
+
+```typescript
+import { defineConfig } from "vitest/config";
+import { vitestStoryPlugin } from "vitest-story";
+
+export default defineConfig({
+  plugins: [
+    vitestStoryPlugin({
+      stepsPaths: ["./steps"],
+      storyPaths: ["./stories"],
+    }),
+  ],
+  test: {
+    include: ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}", "**/*.story"],
+    // Use projects to run different tag combinations
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "smoke-tests",
+          env: {
+            VITEST_STORY_TAGS: "smoke",
+          },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "fast-tests",
+          env: {
+            VITEST_STORY_TAGS: "smoke,fast",
+          },
+        },
+      },
+    ],
+  },
+});
+```
+
+This allows you to run specific test suites:
+
+```bash
+# Run smoke tests only
+npx vitest --project=smoke-tests
+
+# Run fast tests
+npx vitest --project=fast-tests
+
+# Run all projects
+npx vitest
+```
+
 ### YAML Data Tables
 
 Include structured data in your scenarios:
