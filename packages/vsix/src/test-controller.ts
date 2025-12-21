@@ -236,6 +236,16 @@ export class VitestStoryTestController implements vscode.Disposable {
     const fileId = uri.toString();
     const lines = text.split('\n');
     
+    let currentFeature: {
+      title: string | null;
+      startLine: number;
+      scenarios: Array<{
+        title: string;
+        startLine: number;
+        steps: Array<{ keyword: string; text: string; line: number }>;
+      }>;
+    } | null = null;
+
     let currentScenario: {
       title: string;
       startLine: number;
@@ -245,12 +255,44 @@ export class VitestStoryTestController implements vscode.Disposable {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
+      // Match Feature
+      const featureMatch = line.match(/^Feature:\s*(.+)$/);
+      if (featureMatch) {
+        // Flush previous scenario into current feature or children
+        if (currentScenario) {
+          if (!currentFeature) {
+            // No feature yet - add scenario directly to children
+            this.addScenarioItem(uri, fileId, currentScenario, children);
+          } else {
+            currentFeature.scenarios.push(currentScenario);
+          }
+          currentScenario = null;
+        }
+
+        // Flush previous feature if exists
+        if (currentFeature) {
+          this.addFeatureItem(uri, fileId, currentFeature, children);
+        }
+
+        // Start new feature
+        currentFeature = {
+          title: featureMatch[1].trim() || null,
+          startLine: i,
+          scenarios: []
+        };
+        continue;
+      }
+
       // Match Scenario or Scenario Outline
       const scenarioMatch = line.match(/^Scenario(?:\s+Outline)?:\s*(.+)$/);
       if (scenarioMatch) {
         // Save previous scenario if exists
         if (currentScenario) {
-          this.addScenarioItem(uri, fileId, currentScenario, children);
+          if (!currentFeature) {
+            this.addScenarioItem(uri, fileId, currentScenario, children);
+          } else {
+            currentFeature.scenarios.push(currentScenario);
+          }
         }
         
         // Start new scenario
@@ -272,12 +314,21 @@ export class VitestStoryTestController implements vscode.Disposable {
         });
       }
 
-      // Ignore Feature, Background, comments, and empty lines
+      // Ignore Background, comments, and empty lines
     }
 
-    // Add the last scenario if exists
+    // Flush any remaining current scenario
     if (currentScenario) {
-      this.addScenarioItem(uri, fileId, currentScenario, children);
+      if (!currentFeature) {
+        this.addScenarioItem(uri, fileId, currentScenario, children);
+      } else {
+        currentFeature.scenarios.push(currentScenario);
+      }
+    }
+
+    // Flush any remaining feature
+    if (currentFeature) {
+      this.addFeatureItem(uri, fileId, currentFeature, children);
     }
   }
 
@@ -317,6 +368,42 @@ export class VitestStoryTestController implements vscode.Disposable {
     children.push(scenarioItem);
   }
 
+  private addFeatureItem(
+    uri: vscode.Uri,
+    fileId: string,
+    feature: {
+      title: string | null;
+      startLine: number;
+      scenarios: Array<{
+        title: string;
+        startLine: number;
+        steps: Array<{ keyword: string; text: string; line: number }>;
+      }>;
+    },
+    children: vscode.TestItem[]
+  ) {
+    const featureTitle = feature.title || "Feature";
+    const featureId = `${fileId}::feature:${featureTitle}`;
+    const position = new vscode.Position(feature.startLine, 0);
+    const featureItem = this.controller.createTestItem(
+      featureId,
+      featureTitle,
+      uri
+    );
+    featureItem.range = new vscode.Range(position, position);
+
+    const scenarioChildren: vscode.TestItem[] = [];
+    for (const scenario of feature.scenarios) {
+      this.addScenarioItem(uri, fileId, scenario, scenarioChildren);
+    }
+
+    if (scenarioChildren.length > 0) {
+      featureItem.children.replace(scenarioChildren);
+    }
+
+    children.push(featureItem);
+  }
+
   private parseTemplateLiteralFormat(
     text: string,
     uri: vscode.Uri,
@@ -333,6 +420,25 @@ export class VitestStoryTestController implements vscode.Disposable {
 
       const scenarioRegex = /Scenario:\s*(.+)/g;
       let scenarioMatch;
+
+      // Check for a Feature title inside this story content
+      const featureExec = /Feature:\s*(.+)/.exec(content);
+      let featureItem: vscode.TestItem | null = null;
+      const featureScenarioChildren: vscode.TestItem[] = [];
+      let featurePosition: vscode.Position | null = null;
+
+      if (featureExec) {
+        const featureTitle = featureExec[1].trim();
+        const contentStart = match[0].indexOf(match[1]);
+        const featureStartInContent = featureExec.index || 0;
+        const featureAbsoluteOffset =
+          startOffset + contentStart + featureStartInContent;
+        featurePosition = this.getPositionAt(text, featureAbsoluteOffset);
+
+        const featureId = `${fileId}::feature:${featureTitle}`;
+        featureItem = this.controller.createTestItem(featureId, featureTitle, uri);
+        featureItem.range = new vscode.Range(featurePosition, featurePosition);
+      }
 
       while ((scenarioMatch = scenarioRegex.exec(content)) !== null) {
         const title = scenarioMatch[1].trim();
@@ -374,7 +480,16 @@ export class VitestStoryTestController implements vscode.Disposable {
           scenarioItem.children.replace(stepChildren);
         }
 
-        children.push(scenarioItem);
+        if (featureItem) {
+          featureScenarioChildren.push(scenarioItem);
+        } else {
+          children.push(scenarioItem);
+        }
+      }
+
+      if (featureItem && featureScenarioChildren.length > 0) {
+        featureItem.children.replace(featureScenarioChildren);
+        children.push(featureItem);
       }
     }
   }
@@ -602,75 +717,8 @@ export class VitestStoryTestController implements vscode.Disposable {
     fileItem: vscode.TestItem,
     run: vscode.TestRun
   ) {
-    for (const fileResult of result.testResults) {
-      for (const assertion of fileResult.assertionResults) {
-        const testName = assertion.title;
-
-        // Find the scenario item in children
-        let scenarioItem: vscode.TestItem | undefined;
-        fileItem.children.forEach((child) => {
-          if (child.label === testName) {
-            scenarioItem = child;
-          }
-        });
-
-        if (scenarioItem) {
-          if (assertion.status === "passed") {
-            // Mark scenario and all steps as passed
-            run.passed(scenarioItem);
-            scenarioItem.children.forEach((stepItem) => {
-              run.passed(stepItem);
-            });
-          } else {
-            // Parse the error message to find which step failed
-            let failedStepFound = false;
-            assertion.failureMessages.forEach((msg: string) => {
-              // Extract step line number from error message
-              // Error format: "Step failed: "keyword text""
-              const stepFailedMatch = msg.match(/Step failed: "(.+)"/);
-
-              if (stepFailedMatch && scenarioItem) {
-                const failedLineNumber = parseInt(stepFailedMatch[1], 10);
-                const failedStepText = stepFailedMatch[2];
-
-                // Find the matching step item
-                let foundStep = false;
-                scenarioItem.children.forEach((stepItem) => {
-                  if (
-                    stepItem.range &&
-                    stepItem.range.start.line === failedLineNumber - 1
-                  ) {
-                    // Found the failed step
-                    run.failed(stepItem, new vscode.TestMessage(msg));
-                    foundStep = true;
-                    failedStepFound = true;
-                  }
-                });
-
-                // If we didn't find by line number, try to match by text
-                if (!foundStep) {
-                  scenarioItem.children.forEach((stepItem) => {
-                    if (stepItem.label.includes(failedStepText)) {
-                      run.failed(stepItem, new vscode.TestMessage(msg));
-                      failedStepFound = true;
-                    }
-                  });
-                }
-              }
-            });
-
-            // If we couldn't identify the specific step, mark the scenario as failed
-            if (!failedStepFound) {
-              const messages: vscode.TestMessage[] = [];
-              assertion.failureMessages.forEach((msg: string) => {
-                messages.push(new vscode.TestMessage(msg));
-              });
-              run.failed(scenarioItem, messages);
-            }
-          }
-        }
-      }
-    }
+    // Delegate to exported helper so we can unit test the logic
+    processTestResultsForTest(result, fileItem, run);
   }
 
   private execCommand(
@@ -729,3 +777,76 @@ export class VitestStoryTestController implements vscode.Disposable {
     });
   }
 }
+
+/**
+ * Exported helper for unit tests that processes vitest JSON results and maps them
+ * to Test Items. It mirrors the behavior of the class method but is exported for
+ * easier testing without instantiating the whole VS Code TestController.
+ */
+export function processTestResultsForTest(
+  result: any,
+  fileItem: any,
+  run: any
+) {
+  // Helper to find a test item by label recursively
+  const findTestItemByLabel = (parent: any, label: string): any | undefined => {
+    let found: any | undefined;
+    parent.children.forEach((child: any) => {
+      if (child.label === label) {
+        found = child;
+      } else if (!found) {
+        const nested = findTestItemByLabel(child, label);
+        if (nested) found = nested;
+      }
+    });
+    return found;
+  };
+
+  for (const fileResult of result.testResults) {
+    for (const assertion of fileResult.assertionResults) {
+      const testName = assertion.title;
+
+      // Find the scenario item in children (search recursively to support Features)
+      const scenarioItem = findTestItemByLabel(fileItem, testName);
+
+      if (scenarioItem) {
+        if (assertion.status === "passed") {
+          // Mark scenario and all steps as passed
+          run.passed(scenarioItem);
+          scenarioItem.children.forEach((stepItem: any) => {
+            run.passed(stepItem);
+          });
+        } else {
+          // Parse the error message to find which step failed
+          let failedStepFound = false;
+          assertion.failureMessages.forEach((msg: string) => {
+            // Extract the failed step text from messages formatted like:
+            // "Step failed: "When I add 5"\nError: ..."
+            const stepFailedMatch = msg.match(/Step failed:\s*"([^"]+)"/);
+
+            if (stepFailedMatch && scenarioItem) {
+              const failedStepText = stepFailedMatch[1];
+
+              // Find the matching step item by text
+              scenarioItem.children.forEach((stepItem: any) => {
+                if (stepItem.label.includes(failedStepText)) {
+                  run.failed(stepItem, { message: msg });
+                  failedStepFound = true;
+                }
+              });
+            }
+          });
+
+          // If we couldn't identify the specific step, mark the scenario as failed
+          if (!failedStepFound) {
+            const messages: any[] = [];
+            assertion.failureMessages.forEach((msg: string) => {
+              messages.push({ message: msg });
+            });
+            run.failed(scenarioItem, messages);
+          }
+        }
+      }
+    }
+  }
+} 
