@@ -118,10 +118,10 @@ export class StepDefinitionProvider implements vscode.DefinitionProvider {
         (def) => def.location.uri.toString() !== uri.toString()
       );
 
-      // Parse step definitions: Given("pattern", ...), When("pattern", ...), Then("pattern", ...)
+      // Parse step definitions: Given/When/Then/And/But/step("pattern", ...)
       // Match string literals properly, handling escaped quotes and different quote types
       const stepDefRegex =
-        /(Given|When|Then)\s*\(\s*(?:`([^`]*)`|'([^']*)'|"([^"]*)")[\s\S]*?\)/g;
+        /(Given|When|Then|And|But|step)\s*\(\s*(?:`([^`]*)`|'([^']*)'|"([^"]*)")[\s\S]*?\)/g;
       let match;
 
       while ((match = stepDefRegex.exec(text)) !== null) {
