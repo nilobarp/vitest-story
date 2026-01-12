@@ -247,4 +247,95 @@ describe("tokenizeFeature", () => {
     expect(parsed.featureTitle).toBeNull();
     expect(parsed.scenarios).toHaveLength(1);
   });
+
+  it("should parse feature tags", () => {
+    const text = `
+      @fast
+      @regression
+      Feature: Calculator Operations
+      
+      Scenario: Addition
+        Given I start
+    `;
+
+    const parsed = tokenizeFeature(text);
+    expect(parsed.featureTags).toEqual(["fast", "regression"]);
+  });
+
+  it("should parse scenario tags", () => {
+    const text = `
+      Feature: Calculator Operations
+      
+      @fast
+      @smoke
+      Scenario: Addition
+        Given I start
+      
+      @slow
+      Scenario: Complex calculation
+        Given I start
+    `;
+
+    const parsed = tokenizeFeature(text);
+    expect(parsed.scenarios).toHaveLength(2);
+    expect(parsed.scenarios[0].tags).toEqual(["fast", "smoke"]);
+    expect(parsed.scenarios[1].tags).toEqual(["slow"]);
+  });
+
+  it("should parse tags on single line", () => {
+    const text = `
+      @fast @smoke @regression
+      Feature: Calculator Operations
+      
+      @unit @quick
+      Scenario: Addition
+        Given I start
+    `;
+
+    const parsed = tokenizeFeature(text);
+    expect(parsed.featureTags).toEqual(["fast", "smoke", "regression"]);
+    expect(parsed.scenarios[0].tags).toEqual(["unit", "quick"]);
+  });
+
+  it("should parse tags on multiple lines", () => {
+    const text = `
+      @fast
+      @smoke
+      @regression
+      Feature: Calculator Operations
+      
+      @unit
+      @quick
+      Scenario: Addition
+        Given I start
+    `;
+
+    const parsed = tokenizeFeature(text);
+    expect(parsed.featureTags).toEqual(["fast", "smoke", "regression"]);
+    expect(parsed.scenarios[0].tags).toEqual(["unit", "quick"]);
+  });
+
+  it("should handle scenarios without tags", () => {
+    const text = `
+      Feature: Calculator Operations
+      
+      Scenario: Addition
+        Given I start
+    `;
+
+    const parsed = tokenizeFeature(text);
+    expect(parsed.scenarios[0].tags).toEqual([]);
+  });
+
+  it("should handle feature without tags", () => {
+    const text = `
+      Feature: Calculator Operations
+      
+      Scenario: Addition
+        Given I start
+    `;
+
+    const parsed = tokenizeFeature(text);
+    expect(parsed.featureTags).toEqual([]);
+  });
 });

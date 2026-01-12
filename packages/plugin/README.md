@@ -156,3 +156,154 @@ story`
     And the cart should contain "Apple"
 `;
 ```
+
+## Tags
+
+Tags allow you to organize and filter your scenarios. You can use tags to run subsets of your tests or skip specific scenarios.
+
+### Basic Tag Usage
+
+Tags are prefixed with `@` and can be placed before `Feature` or `Scenario` keywords:
+
+```typescript
+import { story } from "vitest-story";
+
+story`
+  @fast
+  @calculator
+  Feature: Calculator Operations
+
+  Background:
+    Given the calculator is reset
+
+  @smoke
+  Scenario: Addition
+    When I add 5
+    Then the result should be 5
+
+  @slow
+  Scenario: Complex calculation
+    When I perform complex operations
+    Then the result should be correct
+`;
+```
+
+### Skipping Scenarios
+
+Use the `@skip` tag to skip scenarios:
+
+```typescript
+story`
+  Feature: Calculator
+
+  @skip
+  Scenario: This test is temporarily disabled
+    Given I have an incomplete feature
+    Then it should not run
+`;
+```
+
+### Filtering Tests by Tags
+
+You can filter tests by tags using the `VITEST_STORY_TAGS` environment variable:
+
+```bash
+# Run only scenarios tagged with @smoke
+VITEST_STORY_TAGS=smoke npx vitest
+
+# Run scenarios with either @smoke or @fast tags
+VITEST_STORY_TAGS=smoke,fast npx vitest
+```
+
+Alternatively, configure tags programmatically:
+
+```typescript
+import { configureVitestStory } from "vitest-story";
+
+configureVitestStory({
+  tags: ["smoke", "fast"],
+});
+```
+
+You can also use Vitest projects to configure different tag combinations in your `vitest.config.ts`:
+
+```typescript
+import { defineConfig } from "vitest/config";
+import { vitestStoryPlugin } from "vitest-story";
+
+export default defineConfig({
+  plugins: [
+    vitestStoryPlugin({
+      stepsPaths: ["./steps"],
+      storyPaths: ["./stories"],
+    }),
+  ],
+  test: {
+    include: ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}", "**/*.story"],
+    // Define multiple projects with different tag filters
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "smoke-tests",
+          env: {
+            VITEST_STORY_TAGS: "smoke",
+          },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "fast-tests",
+          env: {
+            VITEST_STORY_TAGS: "smoke,fast",
+          },
+        },
+      },
+    ],
+  },
+});
+```
+
+Run specific project:
+
+```bash
+# Run smoke tests only
+npx vitest --project=smoke-tests
+
+# Run fast tests
+npx vitest --project=fast-tests
+
+# Run all projects
+npx vitest
+```
+
+### Tag Inheritance
+
+Scenarios inherit tags from their feature. If a feature is tagged with `@fast`, all scenarios in that feature are considered to have the `@fast` tag.
+
+```typescript
+story`
+  @fast
+  Feature: Quick Tests
+
+  Scenario: Test 1
+    # This scenario inherits @fast from the feature
+    Given I start
+`;
+```
+
+### Tag Priority
+
+The `@skip` tag always takes priority. Even if a scenario matches your tag filter, it will be skipped if it has the `@skip` tag.
+
+```typescript
+story`
+  Feature: Tests
+
+  @smoke @skip
+  Scenario: Skipped smoke test
+    # This will be skipped despite having @smoke tag
+    Given I start
+`;
+```

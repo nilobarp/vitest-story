@@ -3,6 +3,20 @@ import { Token, ParsedScenario, ParsedFeature } from "./types.js";
 const STEP_KEYWORDS = ["Given", "When", "Then", "And", "But"];
 
 /**
+ * Parse tags from a line (tags are @word tokens before the main content)
+ * @param line - The line to parse
+ * @returns Array of tags found
+ */
+function parseTags(line: string): string[] {
+  const tags: string[] = [];
+  const matches = line.matchAll(/@(\w+)/g);
+  for (const match of matches) {
+    tags.push(match[1]);
+  }
+  return tags;
+}
+
+/**
  * Parse feature text into structured format with scenarios and background
  * @param text - The feature text from template literal
  * @returns Parsed feature with scenarios and background
@@ -10,12 +24,14 @@ const STEP_KEYWORDS = ["Given", "When", "Then", "And", "But"];
 export function tokenizeFeature(text: string): ParsedFeature {
   const lines = text.split("\n");
   let featureTitle: string | null = null;
+  let featureTags: string[] = [];
   const backgroundTokens: Token[] = [];
   const scenarios: ParsedScenario[] = [];
   let currentScenario: ParsedScenario | null = null;
   let currentTokens: Token[] = [];
   let currentStepToken: Token | null = null;
   let inBackground = false;
+  let pendingTags: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -26,9 +42,21 @@ export function tokenizeFeature(text: string): ParsedFeature {
       continue;
     }
 
+    // Check for tag lines (lines starting with @)
+    if (trimmed.startsWith("@")) {
+      const tags = parseTags(trimmed);
+      pendingTags.push(...tags);
+      continue;
+    }
+
     // Parse feature title
     if (trimmed.startsWith("Feature:")) {
       featureTitle = trimmed.substring("Feature:".length).trim();
+      // Assign pending tags to feature
+      if (pendingTags.length > 0) {
+        featureTags = [...pendingTags];
+        pendingTags = [];
+      }
       continue;
     }
 
@@ -37,6 +65,8 @@ export function tokenizeFeature(text: string): ParsedFeature {
       inBackground = true;
       currentScenario = null;
       currentTokens = backgroundTokens;
+      // Clear pending tags as they don't apply to background
+      pendingTags = [];
       continue;
     }
 
@@ -51,7 +81,9 @@ export function tokenizeFeature(text: string): ParsedFeature {
       currentScenario = {
         title: scenarioTitle,
         tokens: [],
+        tags: [...pendingTags], // Assign pending tags to scenario
       };
+      pendingTags = []; // Clear pending tags
       currentTokens = currentScenario.tokens;
       inBackground = false;
       continue;
@@ -208,7 +240,7 @@ export function tokenizeFeature(text: string): ParsedFeature {
     scenarios.push(currentScenario);
   }
 
-  return { featureTitle, backgroundTokens, scenarios };
+  return { featureTitle, featureTags, backgroundTokens, scenarios };
 }
 
 /**
@@ -227,5 +259,5 @@ export function tokenize(text: string): ParsedScenario {
   }
   
   // If no scenarios found, return empty scenario
-  return { title: "", tokens: [] };
+  return { title: "", tokens: [], tags: [] };
 }

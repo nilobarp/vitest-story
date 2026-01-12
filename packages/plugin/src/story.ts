@@ -14,12 +14,19 @@ import { getHooks } from "./hook-registry.js";
 import { getVitestStoryConfig } from "./config.js";
 
 /**
- * Test runner function type
+ * Special tag that causes a scenario to be skipped
  */
-export type TestRunner = (
+const SKIP_TAG = "skip";
+
+/**
+ * Test runner function type with skip support
+ */
+export type TestRunner = ((
   title: string,
   fn: () => void | Promise<void>
-) => void;
+) => void) & {
+  skip?: (title: string, fn: () => void | Promise<void>) => void;
+};
 
 /**
  * Execute a list of step tokens
@@ -149,6 +156,28 @@ export async function executeStory(
 }
 
 /**
+ * Check if a scenario should be skipped based on its tags
+ */
+function shouldSkipScenario(scenarioTags: string[], featureTags: string[]): boolean {
+  const config = getVitestStoryConfig();
+  const allTags = [...featureTags, ...scenarioTags];
+  
+  // If scenario or feature has @skip tag, skip it
+  if (allTags.includes(SKIP_TAG)) {
+    return true;
+  }
+  
+  // If tag filtering is enabled, check if scenario matches
+  if (config.tags.length > 0) {
+    // Scenario must have at least one of the configured tags
+    const hasMatchingTag = allTags.some(tag => config.tags.includes(tag));
+    return !hasMatchingTag;
+  }
+  
+  return false;
+}
+
+/**
  * Main story template literal function with injectable test runner
  * Returns a function that accepts step registration callback (optional for global steps)
  */
@@ -181,7 +210,11 @@ export function createStory(testRunner?: TestRunner) {
             throw new Error('Each Scenario must have a title');
           }
 
-          testRunner(scenario.title, async () => {
+          // Determine if scenario should be skipped
+          const skip = shouldSkipScenario(scenario.tags, feature.featureTags);
+          const runner = skip && testRunner.skip ? testRunner.skip : testRunner;
+
+          runner(scenario.title, async () => {
             // Create context
             const ctx: Context = {};
 
@@ -232,8 +265,12 @@ export function createStory(testRunner?: TestRunner) {
           throw new Error('Scenario must have a title starting with "Scenario:"');
         }
 
+        // Determine if scenario should be skipped
+        const skip = shouldSkipScenario(parsed.tags, feature.featureTags);
+        const runner = skip && testRunner.skip ? testRunner.skip : testRunner;
+
         // Create test using the provided test runner
-        testRunner(parsed.title, async () => {
+        runner(parsed.title, async () => {
           await executeStory(scenarioText, callback);
         });
       }
@@ -334,7 +371,11 @@ export function executeStoryFromFeature(
       throw new Error("Each Scenario must have a title");
     }
 
-    testRunner(scenario.title, async () => {
+    // Determine if scenario should be skipped
+    const skip = shouldSkipScenario(scenario.tags, feature.featureTags);
+    const runner = skip && testRunner.skip ? testRunner.skip : testRunner;
+
+    runner(scenario.title, async () => {
       // Create context
       const ctx: Context = {};
 
